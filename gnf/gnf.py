@@ -1,5 +1,7 @@
+import math
 import torch
 import torch.nn as nn
+import torch.nn.init as init
 import torch.nn.functional as F
 from torch.distributions import MultivariateNormal
 
@@ -12,6 +14,7 @@ class MessagePassingLayer(nn.Module):
         self.message_dim = message_dim
         self.message_layer = nn.Linear(hidden_dim, message_dim)
         self.update_layer = nn.GRUCell(message_dim, hidden_dim)
+        self.reset_parameters()
 
     def forward(self, X, A):
         B, N, _ = X.shape                         # batch size, number of nodes
@@ -21,6 +24,15 @@ class MessagePassingLayer(nn.Module):
         X = X.view(B * N, self.hidden_dim)
         X = self.update_layer(M, X).view(B, N, self.hidden_dim)
         return X
+
+    def reset_parameters(self):
+        init.uniform_(self.message_layer.weight,
+                      -math.sqrt(1/self.hidden_dim),
+                       math.sqrt(1/self.hidden_dim))
+        init.uniform_(self.message_layer.bias,
+                      -math.sqrt(1/self.hidden_dim),
+                       math.sqrt(1/self.hidden_dim))
+
 
 class MessagePassingModule(nn.Module):
 
@@ -92,7 +104,7 @@ class GRevNet(nn.Module):
 
     def backward(self, z):
         pass
-        
+
     def sample(self, n_samples):
         z = self.prior.sample((n_samples,))
         x, _, _ = self.backward(z)

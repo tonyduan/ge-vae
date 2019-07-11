@@ -26,7 +26,8 @@ def gen_graphs(sizes, p_intra=0.7, p_inter=0.01):
             graph[i,j] = 1
             graph[j,i] = 1
         graph = np.pad(graph, (0, max_size - V), "constant")
-        X[idx,:] = np.r_[np.random.randn(V, 32), np.zeros((max_size - V, 32))]
+        X[idx,:] = np.r_[0.5 * np.random.randn(V, 32),
+                         np.zeros((max_size - V, 32))]
         A[idx] = graph
     return X, A
 
@@ -53,7 +54,7 @@ if __name__ == "__main__":
 
     sizes = np.random.choice(np.arange(12, 19), size=args.N)
     X, A = gen_graphs(sizes)
-    plot_graphs(X, A[:4])
+    # plot_graphs(X, A[:4])
 
     X = torch.tensor(X, dtype=torch.float)
     A = torch.tensor(A, dtype=torch.float)
@@ -61,6 +62,7 @@ if __name__ == "__main__":
     model = GRevNet(hidden_dim = 32, message_dim = 16, num_layers = 2)
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
+    breakpoint()
     for i in range(args.iterations):
         optimizer.zero_grad()
         Z, prior_logprob, log_det = model.forward(X, A)
@@ -69,7 +71,8 @@ if __name__ == "__main__":
         optimizer.step()
         if i % 1 == 0:
             logger.info(f"Iter: {i}\t" +
+                        f"Logprob: {(prior_logprob.mean() + log_det.mean()).data:.2f}\t" +
                         f"Prior: {prior_logprob.mean().data:.2f}\t" +
                         f"LogDet: {log_det.mean().data:.2f}")
 
-    breakpoint()
+    torch.save(model.state_dict(), "./ckpts/model.torch")
