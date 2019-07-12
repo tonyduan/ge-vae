@@ -19,21 +19,42 @@ Ideally we want to learn a latent representation $Z_1$ for the graph structure $
 $$
 Z_1 \leftrightarrow A \rightarrow X \leftrightarrow Z_2.
 $$
+
+
 We now describe how to model the latent representations $Z_1,Z_2$.
 
 ---
 
 #### Adjacency Matrix
 
-Following [Tran et. al. 2019], we want
+Following [Tran et. al. 2019], we use discrete normalizing flows to describe a latent variable model for $A$.  Ideally we want a flow to describe
+$$
+A = f_\theta(Z_1).
+$$
+Using change of variables, the marginal likelihood is given by (note no need for the Jacobian term)
+$$
+p_\theta(A) = p(f_\theta^{-1}(A)).
+$$
 
-An alternative approach would be to follow [Kipf and Welling 2016], and use a variational auto-encoder instead of a discrete flow. This would have the advantage of giving us continuous 
+
+Note that graphs have permutation symmetry; we let $\Gamma A$ denote a permutation operation over the rows of $A$. Ideally we'd want
+$$
+p_\theta(A) = p_\theta(\Gamma A), \text{for all permutations }\Gamma.
+$$
+So what we need is for the flow to be permutation invariant over the rows. The answer is probably in [Bender et. al. 2019]. Todo: figure out how to do this. 
+
+---
+
+Note that an alternative approach would be to follow [Kipf and Welling 2016], and use a variational auto-encoder instead of a discrete flow. 
 $$
 \begin{align*}
 	p_\theta(A|Z_1) & = \sigma_\theta(Z_1 Z_1^\top)\\
 	q_\phi(Z_1|A) & = g_\phi(Z_1|A).
 \end{align*}
 $$
+
+
+This would have the advantage of giving us continuous latent variables $Z_1$ that may be more interpretable, but has the disadvantage of introducing a variational approximation to the intractable posterior distribution $q_\phi(Z_1|A)$.
 
 ---
 
@@ -47,7 +68,9 @@ Using change of variables, the marginal likelihood is then given by
 $$
 p_\theta(X|A) = p(f_\theta^{-1}(X;A))\left|\det \frac{\partial f_\theta^{-1}(X;A)}{\partial X}\right|.
 $$
+
+
 The message-passing framework yields $p_\theta(X|A)$ that is permutation invariant; i.e.
 $$
-p_\theta(X|A) = p_\theta(\Gamma X | A), \text{for all permutations }\Gamma.
+p_\theta(X|A) = p_\theta(\Gamma X | \Gamma A), \text{for all permutations }\Gamma.
 $$
