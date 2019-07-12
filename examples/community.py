@@ -47,6 +47,7 @@ if __name__ == "__main__":
     argparser = ArgumentParser()
     argparser.add_argument("--N", default=200, type=int)
     argparser.add_argument("--iterations", default=1000, type=int)
+    argparser.add_argument("--train", action="store_true")
     args = argparser.parse_args()
 
     logging.basicConfig(level=logging.DEBUG)
@@ -60,19 +61,26 @@ if __name__ == "__main__":
     A = torch.tensor(A, dtype=torch.float)
 
     model = GRevNet(hidden_dim = 32, message_dim = 16, num_layers = 2)
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-    breakpoint()
-    for i in range(args.iterations):
-        optimizer.zero_grad()
-        Z, prior_logprob, log_det = model.forward(X, A)
-        loss = -torch.mean(prior_logprob + log_det)
-        loss.backward()
-        optimizer.step()
-        if i % 1 == 0:
-            logger.info(f"Iter: {i}\t" +
-                        f"Logprob: {(prior_logprob.mean() + log_det.mean()).data:.2f}\t" +
-                        f"Prior: {prior_logprob.mean().data:.2f}\t" +
-                        f"LogDet: {log_det.mean().data:.2f}")
+    if args.train:
 
-    torch.save(model.state_dict(), "./ckpts/model.torch")
+        optimizer = optim.Adam(model.parameters(), lr=0.001)
+
+        for i in range(args.iterations):
+            optimizer.zero_grad()
+            Z, prior_logprob, log_det = model.forward(X, A)
+            loss = -torch.mean(prior_logprob + log_det)
+            loss.backward()
+            optimizer.step()
+            if i % 1 == 0:
+                logger.info(f"Iter: {i}\t" +
+                            f"Logprob: {(prior_logprob.mean() + log_det.mean()).data:.2f}\t" +
+                            f"Prior: {prior_logprob.mean().data:.2f}\t" +
+                            f"LogDet: {log_det.mean().data:.2f}")
+        torch.save(model.state_dict(), "./ckpts/model.torch")
+
+    else:
+
+        model.load_state_dict(torch.load("./ckpts/model.torch"))
+        breakpoint()
+        samples = model.sample(4)

@@ -103,9 +103,14 @@ class GRevNet(nn.Module):
         return Z, prior_logprob, log_det
 
     def backward(self, z):
-        pass
+        B, N, _ = z.shape
+        for flow in self.flows[::-1]:
+            Z, _ = flow.backward(Z, A)
+        X = Z
+        return X
 
     def sample(self, n_samples):
-        z = self.prior.sample((n_samples,))
-        x, _, _ = self.backward(z)
+        Z = self.prior.sample((n_samples, 18))
+        A = 1 # hacky adjacency matrix construction
+        x = self.backward(z)
         return x
