@@ -7,6 +7,7 @@ import networkx as nx
 from argparse import ArgumentParser
 from matplotlib import pyplot as plt
 from gnf.gnf import GRevNet
+from gnf.gvae import GVAE
 
 
 def gen_graphs(sizes, p_intra=0.7, p_inter=0.01):
@@ -46,41 +47,48 @@ if __name__ == "__main__":
 
     argparser = ArgumentParser()
     argparser.add_argument("--N", default=200, type=int)
-    argparser.add_argument("--iterations", default=1000, type=int)
+    argparser.add_argument("--iterations", default=500, type=int)
     argparser.add_argument("--train", action="store_true")
     args = argparser.parse_args()
 
     logging.basicConfig(level=logging.DEBUG)
     logger = logging.getLogger(__name__)
 
-    sizes = np.random.choice(np.arange(12, 19), size=args.N)
+    sizes = np.random.choice(np.arange(18, 19), size=args.N)
     X, A = gen_graphs(sizes)
-    # plot_graphs(X, A[:4])
+    plot_graphs(X, A[:4])
 
-    X = torch.tensor(X, dtype=torch.float)
     A = torch.tensor(A, dtype=torch.float)
 
-    model = GRevNet(hidden_dim = 32, message_dim = 16, num_layers = 2)
+    model = GVAE(n_nodes = 18, latent_dim = 5)
 
-    if args.train:
+    optimizer = optim.Adam(model.parameters(), lr=0.01)
 
-        optimizer = optim.Adam(model.parameters(), lr=0.001)
+    for i in range(args.iterations):
+        optimizer.zero_grad()
+        loss = model.loss(A)
+        loss.mean().backward()
+        optimizer.step()
+        if i % 1 == 0:
+            logger.info(f"Iter: {i}\t" +
+                        f"Loss: {loss.mean().data:.2f}\t")
 
-        for i in range(args.iterations):
-            optimizer.zero_grad()
-            Z, prior_logprob, log_det = model.forward(X, A)
-            loss = -torch.mean(prior_logprob + log_det)
-            loss.backward()
-            optimizer.step()
-            if i % 1 == 0:
-                logger.info(f"Iter: {i}\t" +
-                            f"Logprob: {(prior_logprob.mean() + log_det.mean()).data:.2f}\t" +
-                            f"Prior: {prior_logprob.mean().data:.2f}\t" +
-                            f"LogDet: {log_det.mean().data:.2f}")
-        torch.save(model.state_dict(), "./ckpts/model.torch")
+    breakpoint()
+    sampled_z = model.sample_z(4)
+    A = model.compute_a_given_z(sampled_z)
+    plot_graphs(X, np.round(A.probs).data.numpy())
 
-    else:
 
-        model.load_state_dict(torch.load("./ckpts/model.torch"))
-        breakpoint()
-        samples = model.sample(4)
+    # model = GRevNet(hidden_dim = 32, message_dim = 16, num_layers = 2)
+    # for i in range(args.iterations):
+    #     optimizer.zero_grad()
+    #     Z, prior_logprob, log_det = model.forward(X, A)
+    #     loss = -torch.mean(prior_logprob + log_det)
+    #     loss.backward()
+    #     optimizer.step()
+    #     if i % 1 == 0:
+    #         logger.info(f"Iter: {i}\t" +
+    #                     f"Logprob: {(prior_logprob.mean() + log_det.mean()).data:.2f}\t" +
+    #                     f"Prior: {prior_logprob.mean().data:.2f}\t" +
+    #                     f"LogDet: {log_det.mean().data:.2f}")
+    #

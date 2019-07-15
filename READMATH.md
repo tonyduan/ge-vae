@@ -27,6 +27,10 @@ We now describe how to model the latent representations $Z_1,Z_2$.
 
 #### Adjacency Matrix
 
+We can try uisng 
+
+---
+
 Following [Tran et. al. 2019], we use discrete normalizing flows to describe a latent variable model for $A$.  Ideally we want a flow to describe
 $$
 A = f_\theta(Z_1).
