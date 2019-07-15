@@ -114,3 +114,23 @@ class GRevNet(nn.Module):
         A = 1 # hacky adjacency matrix construction
         x = self.backward(z)
         return x
+
+
+class GraphAutoEncoder(nn.Module):
+
+    def __init__(self):
+        super().__init__()
+
+    def encode(self, X, A):
+        pass
+
+    def decode(self, X):
+        A = torch.pairwise_distance(X)
+        A = torch.sigmoid(-10 * (A - 1))
+        return
+
+
+class GraphDecoder(nn.Module):
+
+    def __init__(self):
+        pass

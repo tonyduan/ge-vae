@@ -6,8 +6,8 @@ import numpy as np
 import networkx as nx
 from argparse import ArgumentParser
 from matplotlib import pyplot as plt
-from gnf.gnf import GRevNet
-from gnf.gvae import GVAE
+from graphflows.gnf import GRevNet
+from graphflows.gvae import GVAE
 
 
 def gen_graphs(sizes, p_intra=0.7, p_inter=0.01):
@@ -77,7 +77,6 @@ if __name__ == "__main__":
     sampled_z = model.sample_z(4)
     A = model.compute_a_given_z(sampled_z)
     plot_graphs(X, np.round(A.probs).data.numpy())
-
 
     # model = GRevNet(hidden_dim = 32, message_dim = 16, num_layers = 2)
     # for i in range(args.iterations):
