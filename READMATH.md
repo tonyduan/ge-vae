@@ -58,6 +58,16 @@ GuacaMol uses a cleaned up version of the ChEMBL 24 dataset, and evaluates for t
 
 MOSES uses the ZINC database, which has been criticized for being a bit biased. It evaluates task (2) only. They found that the SMILES LSTM from [Gómez-Bombarelli et. al. 2018] is highly performant.
 
+#### Paths Forward
+
+Our idea moving forward is to decompose a graph into its structure (adjacency matrix) and its node labels. We represent structure with the Laplacian embedding on each node, so that the embeddings on the nodes can be treated as a set (but without further permutation invariance within each embedding). Then we have a two-step process:
+1. Use set-invariant NVP to flow from Laplacian embeddings into Gaussian random vectors.
+2. Use a separate decoder to predict pairwise edge probabilities from Laplacian embeddings.
+
+One goal of our work is to scale up to generate large graphs after training on small graphs.
+
+Another possible idea to enforce permutation invariance is to permute each adjacency matrix (by degree of nodes, then left-ordering [Bloem-Reddy and Teh, 2019]) prior to training. Then the generation process can follow a sequential decoding procedure, enforcing for example the degree of each subsequent node is .
+
 ---
 
 # Normalizing Flows for Graphs Proposal [OUTDATED PLEASE IGNORE]

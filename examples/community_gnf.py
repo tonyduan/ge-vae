@@ -1,17 +1,17 @@
 import logging
 import itertools
 import torch
+import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import networkx as nx
 from argparse import ArgumentParser
 from matplotlib import pyplot as plt
-from graphflows.gnf import GRevNet, GAE
+from graphflows.gnf import GRevNet, GAE, EdgePredictor
+from graphflows.attn import *
 from graphflows.fgsd import compute_fgsd_embeddings
+from tqdm import tqdm
 
-
-def sort_A(A):
-    return np.array(sorted(A, key=lambda r: np.sum(r), reverse=True))
 
 def gen_graphs(sizes, p_intra=0.7, p_inter=0.01):
     max_size = np.max(sizes)
@@ -36,9 +36,40 @@ def gen_graphs(sizes, p_intra=0.7, p_inter=0.01):
         X[idx,:] = np.r_[0.5 * np.random.randn(V, 32),
                          np.zeros((max_size - V, 32))]
         A[idx] = graph
-    breakpoint()
     return X, A
 
+
+def convert_pairwise(A, E):
+    """
+    Convert to a representation where the pairwise relationship
+    """
+    X = []
+    Y = []
+    idxs = []
+    for A_k, E_k in tqdm(zip(A, E), total=len(A)):
+        for i in range(len(A_k)):
+            for j in range(i + 1, len(A_k)):
+                Y += [A_k[i, j]]
+                first = E_k[i][np.newaxis,:]
+                second = E_k[j][np.newaxis,:]
+                rest_idx = np.r_[np.arange(i), np.arange(i + 1, j),
+                                 np.arange(j + 1, len(A_k))]
+                rest = np.take(E_k, rest_idx, axis=0)
+                X += [np.r_[first, second, rest]]
+                idxs+= [(i, j)]
+    return idxs, np.array(X), np.array(Y)
+
+
+def construct_pairwise_X(N, idxs, Y_hat):
+    pass
+
+
+def reconstruct_adjacency(N, idxs, Y_hat):
+    A = np.zeros((N, N))
+    for (i, j), y in zip(idxs, Y_hat):
+        A[i,j] = y
+        A[j,i] = y
+    return A
 
 def plot_graphs(X, A):
     plt.figure(figsize=(8, 3))
@@ -50,10 +81,13 @@ def plot_graphs(X, A):
         nx.draw(G, node_color = "black", node_size = 50)
     plt.show()
 
+
+
 if __name__ == "__main__":
 
     argparser = ArgumentParser()
-    argparser.add_argument("--N", default=200, type=int)
+    argparser.add_argument("--N", default=100, type=int)
+    argparser.add_argument("--K", default=10, type=int)
     argparser.add_argument("--iterations", default=20, type=int)
     argparser.add_argument("--train", action="store_true")
     args = argparser.parse_args()
@@ -64,6 +98,54 @@ if __name__ == "__main__":
     sizes = np.random.choice(np.arange(18, 19), size=args.N)
     X, A = gen_graphs(sizes)
     E = np.array([compute_fgsd_embeddings(a) for a in A])
+    E = E[:, :, :args.K]
+
+    _, X, Y = convert_pairwise(A, E)
+    X = torch.tensor(X, dtype=torch.float)
+    Y = torch.tensor(Y, dtype=torch.float)
+
+    edge_predictor = EdgePredictor(args.K)
+    optimizer = optim.Adam(edge_predictor.parameters(), lr=0.01)
+    for i in range(200):
+        optimizer.zero_grad()
+        batch_idx = np.random.choice(len(X), size=2000, replace=True)
+        loss = edge_predictor.loss(X[batch_idx], Y[batch_idx]).mean()
+        loss.backward()
+        optimizer.step()
+        if i % 1 == 0:
+            logger.info(f"Iter: {i}\t" +
+                        f"Loss: {loss.mean().data:.2f}\t")
+
+    X, A = gen_graphs([18])
+    E = np.array([compute_fgsd_embeddings(a) for a in A])
+    E = E[:, :, :args.K]
+
+    idxs, X, Y = convert_pairwise(A, E)
+    X = torch.tensor(X, dtype=torch.float)
+    Y_hat = torch.sigmoid(edge_predictor.forward(X))
+
+    A_hat = reconstruct_adjacency(18, idxs, Y_hat)
+    breakpoint()
+
+    A_sample = (np.random.rand(*A_hat.shape) < A_hat).astype(int)
+    nx.draw(nx.from_numpy_array(A_sample))
+    plt.show()
+
+    model = GRevNet(hidden_dim = 18, message_dim = 16, num_layers = 4)
+    optimizer = optim.Adam(model.parameters(), lr=0.01)
+
+    for i in range(args.iterations):
+        optimizer.zero_grad()
+        Z, prior_logprob, log_det = model.forward(E, A_fake)
+        loss = -torch.mean(prior_logprob + log_det)
+        loss.backward()
+        optimizer.step()
+        if i % 1 == 0:
+            logger.info(f"Iter: {i}\t" +
+                        f"Logprob: {(prior_logprob.mean() + log_det.mean()).data:.2f}\t" +
+                        f"Prior: {prior_logprob.mean().data:.2f}\t" +
+                        f"LogDet: {log_det.mean().data:.2f}")
+
 
     A_fake = np.ones((200, 18, 18))
     ind1, ind2 = np.diag_indices(18)

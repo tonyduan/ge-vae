@@ -3,9 +3,27 @@ import torch
 import torch.nn as nn
 import torch.nn.init as init
 import torch.nn.functional as F
-from graphflows.attn import MAB
+from graphflows.attn import MAB, PMA
 from graphflows.sparsemax import Sparsemax
 from torch.distributions import MultivariateNormal, Bernoulli
+
+
+
+class EdgePredictor(nn.Module):
+
+    def __init__(self, embedding_dim):
+        super().__init__()
+        self.rest_query = MAB(embedding_dim, embedding_dim, embedding_dim, 1)
+        self.pair_query = PMA(embedding_dim, num_heads = 1, num_seeds = 1)
+        self.fc = nn.Linear(embedding_dim, 1)
+
+    def forward(self, X):
+        pair = X[:, :2, :]
+        rest = X[:, 2:, :]
+        return self.fc(self.pair_query(self.rest_query(pair, rest)))
+
+    def loss(self, X, Y):
+        return -Bernoulli(logits = self.forward(X)[:,0,0]).log_prob(Y)
 
 
 class AttnBlock(nn.Module):
