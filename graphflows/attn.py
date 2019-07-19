@@ -50,7 +50,7 @@ class ISAB(nn.Module):
         init.xavier_uniform_(self.I)
 
     def forward(self, X):
-        H = self.mab0(self.I.repeat(X.size(0), 1, 1), X)
+        H = self.mab0(self.I.repeat(X.shape[0], 1, 1), X)
         return self.mab1(X, H)
 
 

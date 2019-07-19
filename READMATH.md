@@ -66,7 +66,7 @@ Our idea moving forward is to decompose a graph into its structure (adjacency ma
 
 One goal of our work is to scale up to generate large graphs after training on small graphs.
 
-Another possible idea to enforce permutation invariance is to permute each adjacency matrix (by degree of nodes, then left-ordering [Bloem-Reddy and Teh, 2019]) prior to training. Then the generation process can follow a sequential decoding procedure, enforcing for example the degree of each subsequent node is .
+Another possible idea to enforce permutation invariance is to permute each adjacency matrix (by degree of nodes, then left-ordering [Bloem-Reddy and Teh, 2019]) prior to training. Then the generation process can follow a sequential decoding procedure, enforcing for example the degree of each subsequent node.
 
 ---
 
