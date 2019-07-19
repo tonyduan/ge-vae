@@ -115,7 +115,7 @@ if __name__ == "__main__":
     X, A = gen_graphs(sizes)
     E = np.array([compute_fgsd_embeddings(a) for a in A])
     E = E[:, :, :args.K]
-    E = 0.01 * np.random.randn(*E.shape)
+    E += 0.01 * np.random.randn(*E.shape)
 
     _, X, Y = convert_pairwise(A, E)
     X = torch.tensor(X, dtype=torch.float)
@@ -150,7 +150,6 @@ if __name__ == "__main__":
 
     edge_predictor = EdgePredictor(args.K)
     edge_predictor.load_state_dict(torch.load("./ckpts/edge_predictor.torch"))
-
 
     X, A = gen_graphs(sizes)
     E = np.array([compute_fgsd_embeddings(a) for a in A])
