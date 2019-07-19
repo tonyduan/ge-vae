@@ -21,15 +21,11 @@ We now describe how to model the latent representations <img alt="$Z_1,Z_2$" src
 
 #### Adjacency Matrix
 
-Following [Tran et. al. 2019], we use discrete normalizing flows to describe a latent variable model for <img alt="$A$" src="svgs/53d147e7f3fe6e47ee05b88b166bd3f6.svg" align="middle" width="12.32879834999999pt" height="22.465723500000017pt"/>.  Ideally we want a flow to describe
-<p align="center"><img alt="$$&#10;A = f_\theta(Z_1).&#10;$$" src="svgs/e718205e209d7ca6319eca15a488294a.svg" align="middle" width="85.67918205pt" height="16.438356pt"/></p>
-Using change of variables, the marginal likelihood is given by (note no need for the Jacobian term)
-<p align="center"><img alt="$$&#10;p_\theta(A) = p(f_\theta^{-1}(A)).&#10;$$" src="svgs/eeab56e01ea0acbf6349b3c1b97e7a39.svg" align="middle" width="140.94192255pt" height="19.40624895pt"/></p>
-
+The adjacency matrix is a discrete object. 
 
 Note that graphs have permutation symmetry; we let <img alt="$\Gamma A$" src="svgs/a17070372c8cbc747d20be4164ee838b.svg" align="middle" width="22.60280219999999pt" height="22.465723500000017pt"/> denote a permutation operation over the rows of <img alt="$A$" src="svgs/53d147e7f3fe6e47ee05b88b166bd3f6.svg" align="middle" width="12.32879834999999pt" height="22.465723500000017pt"/>. Ideally we'd want
 <p align="center"><img alt="$$&#10;p_\theta(A) = p_\theta(\Gamma A), \text{for all permutations }\Gamma.&#10;$$" src="svgs/3bdf538217b7c0c2e7dd3cad710da3b1.svg" align="middle" width="284.56647284999997pt" height="16.438356pt"/></p>
-So what we need is for the flow to be permutation invariant over the rows. The answer is probably in [Bender et. al. 2019].
+So what we need is for the flow to be permutation invariant over the rows. The answer is probably in [Bender et. al. 2019]. Todo: figure out how to do this. 
 
 ---
 

@@ -29,7 +29,7 @@ class DiagGCN(nn.Module):
         return Normal(loc=mu, scale=torch.exp(sd))
 
 
-class GVAE(nn.Module):
+class GraphFlow(nn.Module):
 
     def __init__(self, n_nodes, latent_dim):
         super().__init__()
@@ -45,7 +45,6 @@ class GVAE(nn.Module):
             PMA(dim = 18, num_heads = 2, num_seeds = 12), # number of evecs
             ISAB(dim_in = 18, dim_out = 18, num_heads = 2, num_inds=5),
         )
-        # self.encoder = DiagGCN(n_nodes, latent_dim)
 
     def loss(self, A, E):
         pred_z = self.compute_z_given_e(E)
@@ -63,7 +62,7 @@ class GVAE(nn.Module):
 
         return Bernoulli(bernoulli_matrix)
 
-    def compute_z_given_e(self, E):
+    def forward(self, E):
         H = self.isab(E)
         mu = self.pma1(H)
         logsd = self.pma2(H)
