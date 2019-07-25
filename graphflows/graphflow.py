@@ -60,6 +60,7 @@ class GF(nn.Module):
         for flow in self.flows:
             X, LD = flow.forward(X)
             log_det += LD
+        breakpoint()
         Z, prior_logprob = X, self.prior.log_prob(X)
         return Z, prior_logprob, log_det
 

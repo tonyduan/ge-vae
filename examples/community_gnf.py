@@ -102,9 +102,9 @@ def plot_graphs(X, A):
 if __name__ == "__main__":
 
     argparser = ArgumentParser()
-    argparser.add_argument("--N", default=200, type=int)
-    argparser.add_argument("--K", default=10, type=int)
-    argparser.add_argument("--iterations", default=500, type=int)
+    argparser.add_argument("--N", default=500, type=int)
+    argparser.add_argument("--K", default=5, type=int)
+    argparser.add_argument("--iterations", default=200, type=int)
     argparser.add_argument("--train", action="store_true")
     args = argparser.parse_args()
 
@@ -115,7 +115,7 @@ if __name__ == "__main__":
     X, A = gen_graphs(sizes)
     E = np.array([compute_fgsd_embeddings(a) for a in A])
     E = E[:, :, :args.K]
-    E += 0.01 * np.random.randn(*E.shape)
+    E += 0.05 * np.random.randn(*E.shape)
 
     _, X, Y = convert_pairwise(A, E)
     X = torch.tensor(X, dtype=torch.float)
@@ -146,6 +146,8 @@ if __name__ == "__main__":
     nx.draw(nx.from_numpy_array(A_sample))
     plt.show()
 
+    breakpoint()
+
     torch.save(edge_predictor.state_dict(), "./ckpts/edge_predictor.torch")
 
     edge_predictor = EdgePredictor(args.K)
@@ -157,7 +159,7 @@ if __name__ == "__main__":
 
     E = torch.tensor(E, dtype=torch.float)
 
-    model = GF(n_nodes = 18, embedding_dim = 10, num_flows = 1)
+    model = GF(n_nodes = 18, embedding_dim = args.K, num_flows = 1)
     optimizer = optim.Adam(model.parameters(), lr=0.01)
 
     for i in range(args.iterations):
@@ -174,7 +176,7 @@ if __name__ == "__main__":
 
     breakpoint()
 
-    Z = torch.randn(1, 18, 10)
+    Z = torch.randn(1, 18, args.K)
     E = model.backward(Z)
 
     plt.imshow(E[0].data.numpy())
