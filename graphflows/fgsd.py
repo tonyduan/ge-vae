@@ -8,8 +8,9 @@ from matplotlib import pyplot as plt
 def compute_fgsd_embeddings(A, eps=1e-2):
     D = np.diag(np.sum(A, axis=1))
     L = D - A
-    W, V = np.linalg.eig(L)
-    W_orig = W.copy()
+    W, V = np.linalg.eigh(L)
+    if np.mean(V[:,0]) < 0: # todo: make this less hacky
+        V[:,0] = -V[:,0]
     W[W < eps] = 0.1
     W[W > eps] = 1 / W[W > eps]
     E = V @ np.diag(np.sqrt(W))

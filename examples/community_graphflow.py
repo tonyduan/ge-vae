@@ -102,7 +102,7 @@ if __name__ == "__main__":
     argparser = ArgumentParser()
     argparser.add_argument("--N", default=500, type=int)
     argparser.add_argument("--K", default=6, type=int)
-    argparser.add_argument("--iterations", default=300, type=int)
+    argparser.add_argument("--iterations", default=500, type=int)
     argparser.add_argument("--train", action="store_true")
     args = argparser.parse_args()
 
@@ -157,6 +157,13 @@ if __name__ == "__main__":
 
     E = torch.tensor(E, dtype=torch.float)
 
+    plt.figure(figsize=(8, 3))
+    for i in range(4):
+        plt.subplot(1, 4, i + 1)
+        plt.imshow(E[i], vmin = -0.8, vmax = 0.8)
+        plt.colorbar()
+    plt.show()
+
     model = GF(n_nodes = 18, embedding_dim = args.K, num_flows = 1)
     optimizer = optim.Adam(model.parameters(), lr=0.01)
 
@@ -180,7 +187,7 @@ if __name__ == "__main__":
     Z = torch.randn(1, 18, args.K)
     E = model.backward(Z)
 
-    plt.imshow(E[0].data.numpy())
+    plt.imshow(E[0].data.numpy(), vmin = -0.8, vmax = 0.8)
     plt.show()
 
     idxs, X = construct_pairwise_X(E.data.numpy())

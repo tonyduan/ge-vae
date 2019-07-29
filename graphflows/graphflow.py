@@ -2,8 +2,8 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.init as init
-from torch.distributions import Normal, Bernoulli, kl, MultivariateNormal
-from graphflows.attn import ISAB, PMA
+from torch.distributions import Normal, Bernoulli, MultivariateNormal
+from graphflows.attn import ISAB, PMA, MAB, SAB
 
 
 class EdgePredictor(nn.Module):
@@ -23,8 +23,71 @@ class EdgePredictor(nn.Module):
         return -Bernoulli(logits = self.forward(X)[:,0,0]).log_prob(Y)
 
 
+class MLP(nn.Module):
+    """
+    Simple fully connected neural network.
+    """
+    def __init__(self, in_dim, out_dim, hidden_dim):
+        super().__init__()
+        self.network = nn.Sequential(
+            nn.Linear(in_dim, hidden_dim),
+            nn.Tanh(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.Tanh(),
+            nn.Linear(hidden_dim, out_dim),
+        )
+
+    def forward(self, x):
+        return self.network(x)
 
 class GFLayer(nn.Module):
+
+    def __init__(self, embedding_dim):
+        super().__init__()
+        self.embedding_dim = embedding_dim
+        self.attn_layers = nn.ModuleList()
+        self.fc_layers = nn.ModuleList()
+        self.initial_param = nn.Parameter(torch.Tensor(2))
+        for i in range(1, embedding_dim):
+            self.attn_layers += [SAB(i, i, num_heads = 1)]
+            # self.fc_layers += [nn.Linear(i, 2)]
+            self.fc_layers += [MLP(i, 2, hidden_dim = 16)]
+
+    def forward(self, X):
+        """
+        Given X, returns Z and the log-determinant log|df/dx|.
+        """
+        Z = torch.zeros_like(X)
+        logdet = torch.zeros(X.shape[0], X.shape[1])
+        for i in range(self.embedding_dim):
+            if i == 0:
+                mu, alpha = self.initial_param[0], self.initial_param[1]
+            else:
+                out = self.attn_layers[i - 1](Z[:, :, :i])
+                out = self.fc_layers[i -1](out)
+                mu, alpha = out[:,:,0], out[:, :, 1]
+            Z[:,:,i] = (X[:,:,i] - mu) / torch.exp(alpha)
+            logdet -= alpha
+        return Z, logdet
+
+    def backward(self, Z):
+        """
+        Given Z, returns X and the log-determinant log|df⁻¹/dz|.
+        """
+        X = torch.zeros_like(Z)
+        logdet = torch.zeros(X.shape[0], X.shape[1])
+        for i in range(self.embedding_dim):
+            if i == 0:
+                mu, alpha = self.initial_param[0], self.initial_param[1]
+            else:
+                out = self.fc_layers[i -1](self.attn_layers[i - 1](Z[:, :, :i]))
+                mu, alpha = out[:,:,0], out[:, :, 1]
+            X[:,:,i] = mu + torch.exp(alpha) * Z[:,:,i]
+            logdet += alpha
+        return X, logdet
+
+
+class GFLayerNVP(nn.Module):
 
     def __init__(self, embedding_dim):
         super().__init__()
@@ -70,7 +133,7 @@ class GF(nn.Module):
         self.prior = MultivariateNormal(torch.zeros(embedding_dim),
                                         torch.eye(embedding_dim))
         self.flows = nn.ModuleList([GFLayer(embedding_dim) \
-                                    for _ in range(num_flows)])
+                                        for _ in range(num_flows)])
 
     def forward(self, X):
         B, N, _ = X.shape
