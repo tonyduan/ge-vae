@@ -6,15 +6,33 @@ from torch.distributions import Normal, Bernoulli, kl, MultivariateNormal
 from graphflows.attn import ISAB, PMA
 
 
+class EdgePredictor(nn.Module):
+
+    def __init__(self, embedding_dim):
+        super().__init__()
+        self.rest_query = MAB(embedding_dim, embedding_dim, embedding_dim, 1)
+        self.pair_query = PMA(embedding_dim, num_heads = 1, num_seeds = 1)
+        self.fc = nn.Linear(embedding_dim, 1)
+
+    def forward(self, X):
+        pair = X[:, :2, :]
+        rest = X[:, 2:, :]
+        return self.fc(self.pair_query(self.rest_query(pair, rest)))
+
+    def loss(self, X, Y):
+        return -Bernoulli(logits = self.forward(X)[:,0,0]).log_prob(Y)
+
+
+
 class GFLayer(nn.Module):
 
     def __init__(self, embedding_dim):
         super().__init__()
         self.embedding_dim = embedding_dim
-        self.F1 = ISAB(embedding_dim // 2, embedding_dim // 2, 1, 4)
-        self.F2 = ISAB(embedding_dim // 2, embedding_dim // 2, 1, 4)
-        self.G1 = ISAB(embedding_dim // 2, embedding_dim // 2, 1, 4)
-        self.G2 = ISAB(embedding_dim // 2, embedding_dim // 2, 1, 4)
+        self.F1 = ISAB(embedding_dim // 2, embedding_dim // 2, 1, num_inds = 4)
+        self.F2 = ISAB(embedding_dim // 2, embedding_dim // 2, 1, num_inds = 4)
+        self.G1 = ISAB(embedding_dim // 2, embedding_dim // 2, 1, num_inds = 4)
+        self.G2 = ISAB(embedding_dim // 2, embedding_dim // 2, 1, num_inds = 4)
 
     def forward(self, X):
         """
@@ -60,7 +78,6 @@ class GF(nn.Module):
         for flow in self.flows:
             X, LD = flow.forward(X)
             log_det += LD
-        breakpoint()
         Z, prior_logprob = X, self.prior.log_prob(X)
         return Z, prior_logprob, log_det
 

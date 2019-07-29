@@ -72,7 +72,7 @@ if __name__ == "__main__":
 
     for i in range(args.iterations):
         optimizer.zero_grad()
-        loss = model.loss(A, E)
+        loss = model.loss(A)
         loss.mean().backward()
         optimizer.step()
         if i % 1 == 0:
