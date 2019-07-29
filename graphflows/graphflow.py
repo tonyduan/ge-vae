@@ -50,8 +50,8 @@ class GFLayer(nn.Module):
         self.initial_param = nn.Parameter(torch.Tensor(2))
         for i in range(1, embedding_dim):
             self.attn_layers += [SAB(i, i, num_heads = 1)]
-            # self.fc_layers += [nn.Linear(i, 2)]
-            self.fc_layers += [MLP(i, 2, hidden_dim = 16)]
+            self.fc_layers += [nn.Linear(i, 2)]
+            # self.fc_layers += [MLP(i, 2, hidden_dim = 16)]
 
     def forward(self, X):
         """
@@ -63,7 +63,7 @@ class GFLayer(nn.Module):
             if i == 0:
                 mu, alpha = self.initial_param[0], self.initial_param[1]
             else:
-                out = self.attn_layers[i - 1](Z[:, :, :i])
+                out = self.attn_layers[i - 1](X[:, :, :i])
                 out = self.fc_layers[i -1](out)
                 mu, alpha = out[:,:,0], out[:, :, 1]
             Z[:,:,i] = (X[:,:,i] - mu) / torch.exp(alpha)
@@ -80,7 +80,7 @@ class GFLayer(nn.Module):
             if i == 0:
                 mu, alpha = self.initial_param[0], self.initial_param[1]
             else:
-                out = self.fc_layers[i -1](self.attn_layers[i - 1](Z[:, :, :i]))
+                out = self.fc_layers[i -1](self.attn_layers[i - 1](X[:, :, :i]))
                 mu, alpha = out[:,:,0], out[:, :, 1]
             X[:,:,i] = mu + torch.exp(alpha) * Z[:,:,i]
             logdet += alpha
@@ -138,6 +138,7 @@ class GF(nn.Module):
     def forward(self, X):
         B, N, _ = X.shape
         log_det = torch.zeros(B, N)
+        X = X.flip((2,))
         for flow in self.flows:
             X, LD = flow.forward(X)
             log_det += LD
@@ -149,5 +150,6 @@ class GF(nn.Module):
         for flow in self.flows[::-1]:
             Z, _ = flow.backward(Z)
         X = Z
+        X = X.flip((2,))
         return X
 
