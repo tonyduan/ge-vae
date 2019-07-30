@@ -53,10 +53,10 @@ class GFLayer(nn.Module):
         self.device = device
         for i in range(1, embedding_dim):
             self.attn_layers += [SAB(i, i, num_heads = 1)]
-            #self.fc_layers += [nn.Linear(i, 2)]
-            self.fc_layers += [MLP(i, 2, hidden_dim = 16)]
+            self.fc_layers += [nn.Linear(i, 2)]
+            #self.fc_layers += [MLP(i, 2, hidden_dim = 16)]
 
-    def forward(self, X):
+    def forward(self, X, permute=False):
         """
         Given X, returns Z and the log-determinant log|df/dx|.
         """
@@ -70,14 +70,18 @@ class GFLayer(nn.Module):
                 out = self.fc_layers[i -1](out)
                 mu, alpha = out[:,:,0], out[:, :, 1]
             Z[:,:,i] = (X[:,:,i] - mu) / torch.exp(alpha)
-            logdet -= alpha # todo: add permutation layer
+            logdet -= alpha 
+        if permute:
+            Z = Z.flip((2,))
         return Z, logdet
 
-    def backward(self, Z):
+    def backward(self, Z, permute=False):
         """
         Given Z, returns X and the log-determinant log|df⁻¹/dz|.
         """
         X = torch.zeros_like(Z)
+        if permute:
+            Z = Z.flip((2,))
         logdet = torch.zeros(X.shape[0], X.shape[1], device=self.device)
         for i in range(self.embedding_dim):
             if i == 0:

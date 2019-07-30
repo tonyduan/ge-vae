@@ -144,9 +144,9 @@ if __name__ == "__main__":
     E = E[:, :, :args.K]
     E = torch.tensor(E, dtype=torch.float, device=args.device)
 
-    model = GF(n_nodes = 18, embedding_dim = args.K, num_flows = 4, device = args.device)
+    model = GF(n_nodes = 18, embedding_dim = args.K, num_flows = 2, device = args.device)
     model = model.to(args.device)
-    optimizer = optim.Adam(model.parameters(), lr=0.005)
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
 
     for i in range(args.iterations):
         optimizer.zero_grad()

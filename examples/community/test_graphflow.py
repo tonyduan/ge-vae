@@ -117,7 +117,7 @@ if __name__ == "__main__":
     edge_predictor = EdgePredictor(args.K)
     edge_predictor.load_state_dict(torch.load(f"./ckpts/{args.edgepredictor_file}"))
 
-    model = GF(n_nodes = 18, embedding_dim = args.K, num_flows = 4, device = "cpu")
+    model = GF(n_nodes = 18, embedding_dim = args.K, num_flows = 2, device = "cpu")
     model.load_state_dict(torch.load(f"./ckpts/{args.graphflow_file}"))
 
     plt.figure(figsize=(8, 6))
