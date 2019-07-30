@@ -5,11 +5,13 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import networkx as nx
+import matplotlib as mpl
 from argparse import ArgumentParser
-from matplotlib import pyplot as plt
 from graphflows.graphflow import GF, EdgePredictor
 from graphflows.fgsd import compute_fgsd_embeddings
 from tqdm import tqdm
+mpl.use("agg")
+from matplotlib import pyplot as plt
 
 
 def gen_graphs(sizes, p_intra=0.7, p_inter=0.01):
@@ -115,7 +117,7 @@ if __name__ == "__main__":
     edge_predictor = EdgePredictor(args.K)
     edge_predictor.load_state_dict(torch.load(f"./ckpts/{args.edgepredictor_file}"))
 
-    model = GF(n_nodes = 18, embedding_dim = args.K, num_flows = 4)
+    model = GF(n_nodes = 18, embedding_dim = args.K, num_flows = 4, device = "cpu")
     model.load_state_dict(torch.load(f"./ckpts/{args.graphflow_file}"))
 
     plt.figure(figsize=(8, 6))

@@ -100,10 +100,10 @@ def plot_graphs(X, A):
 if __name__ == "__main__":
 
     argparser = ArgumentParser()
-    argparser.add_argument("--N", default=500, type=int)
+    argparser.add_argument("--N", default=3000, type=int)
     argparser.add_argument("--K", default=6, type=int)
-    argparser.add_argument("--iterations", default=500, type=int)
-    argparser.add_argument("--gpu", action="store_true")
+    argparser.add_argument("--iterations", default=1000, type=int)
+    argparser.add_argument("--device", default="cuda:0")
     argparser.add_argument("--train-edgepredictor", action="store_true")
     argparser.add_argument("--edgepredictor-file", default="ep.torch")
     argparser.add_argument("--graphflow-file", default="gf.torch")
@@ -142,14 +142,10 @@ if __name__ == "__main__":
     X, A = gen_graphs(sizes)
     E = np.array([compute_fgsd_embeddings(a) for a in A])
     E = E[:, :, :args.K]
-    E = torch.tensor(E, dtype=torch.float)
+    E = torch.tensor(E, dtype=torch.float, device=args.device)
 
-    model = GF(n_nodes = 18, embedding_dim = args.K, num_flows = 4)
-
-    if args.gpu:
-        E = E.gpu()
-        model = model.gpu()
-
+    model = GF(n_nodes = 18, embedding_dim = args.K, num_flows = 4, device = args.device)
+    model = model.to(args.device)
     optimizer = optim.Adam(model.parameters(), lr=0.005)
 
     for i in range(args.iterations):
@@ -164,5 +160,5 @@ if __name__ == "__main__":
                         f"Prior: {prior_logprob.mean().data:.2f}\t" +
                         f"LogDet: {log_det.mean().data:.2f}")
 
-        model = model.cpu()
-        torch.save(model.state_dict(), f"./ckpts/{args.graphflow_file}")
+    model = model.cpu()
+    torch.save(model.state_dict(), f"./ckpts/{args.graphflow_file}")

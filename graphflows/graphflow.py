@@ -41,24 +41,27 @@ class MLP(nn.Module):
         return self.network(x)
 
 class GFLayer(nn.Module):
-
-    def __init__(self, embedding_dim):
+    """
+    Masked auto-regressive flow style layer.
+    """
+    def __init__(self, embedding_dim, device):
         super().__init__()
         self.embedding_dim = embedding_dim
         self.attn_layers = nn.ModuleList()
         self.fc_layers = nn.ModuleList()
         self.initial_param = nn.Parameter(torch.Tensor(2))
+        self.device = device
         for i in range(1, embedding_dim):
             self.attn_layers += [SAB(i, i, num_heads = 1)]
-            self.fc_layers += [nn.Linear(i, 2)]
-            # self.fc_layers += [MLP(i, 2, hidden_dim = 16)]
+            #self.fc_layers += [nn.Linear(i, 2)]
+            self.fc_layers += [MLP(i, 2, hidden_dim = 16)]
 
     def forward(self, X):
         """
         Given X, returns Z and the log-determinant log|df/dx|.
         """
         Z = torch.zeros_like(X)
-        logdet = torch.zeros(X.shape[0], X.shape[1])
+        logdet = torch.zeros(X.shape[0], X.shape[1], device=self.device)
         for i in range(self.embedding_dim):
             if i == 0:
                 mu, alpha = self.initial_param[0], self.initial_param[1]
@@ -67,7 +70,7 @@ class GFLayer(nn.Module):
                 out = self.fc_layers[i -1](out)
                 mu, alpha = out[:,:,0], out[:, :, 1]
             Z[:,:,i] = (X[:,:,i] - mu) / torch.exp(alpha)
-            logdet -= alpha
+            logdet -= alpha # todo: add permutation layer
         return Z, logdet
 
     def backward(self, Z):
@@ -75,7 +78,7 @@ class GFLayer(nn.Module):
         Given Z, returns X and the log-determinant log|df⁻¹/dz|.
         """
         X = torch.zeros_like(Z)
-        logdet = torch.zeros(X.shape[0], X.shape[1])
+        logdet = torch.zeros(X.shape[0], X.shape[1], device=self.device)
         for i in range(self.embedding_dim):
             if i == 0:
                 mu, alpha = self.initial_param[0], self.initial_param[1]
@@ -126,18 +129,19 @@ class GFLayerNVP(nn.Module):
 
 class GF(nn.Module):
 
-    def __init__(self, n_nodes, embedding_dim, num_flows):
+    def __init__(self, n_nodes, embedding_dim, num_flows, device):
         super().__init__()
         self.n_nodes = n_nodes
         self.embedding_dim = embedding_dim
-        self.prior = MultivariateNormal(torch.zeros(embedding_dim),
-                                        torch.eye(embedding_dim))
-        self.flows = nn.ModuleList([GFLayer(embedding_dim) \
-                                        for _ in range(num_flows)])
+        self.flows = nn.ModuleList([GFLayer(embedding_dim, device) \
+                                    for _ in range(num_flows)])
+        self.prior = MultivariateNormal(torch.zeros(embedding_dim, device=device),
+                                        torch.eye(embedding_dim, device=device))
+        self.device = device
 
     def forward(self, X):
         B, N, _ = X.shape
-        log_det = torch.zeros(B, N)
+        log_det = torch.zeros(B, N, device=self.device)
         for flow in self.flows:
             X, LD = flow.forward(X)
             log_det += LD
