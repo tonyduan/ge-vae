@@ -138,7 +138,6 @@ class GF(nn.Module):
     def forward(self, X):
         B, N, _ = X.shape
         log_det = torch.zeros(B, N)
-        X = X.flip((2,))
         for flow in self.flows:
             X, LD = flow.forward(X)
             log_det += LD
@@ -150,6 +149,5 @@ class GF(nn.Module):
         for flow in self.flows[::-1]:
             Z, _ = flow.backward(Z)
         X = Z
-        X = X.flip((2,))
         return X
 

@@ -103,69 +103,54 @@ if __name__ == "__main__":
     argparser.add_argument("--N", default=500, type=int)
     argparser.add_argument("--K", default=6, type=int)
     argparser.add_argument("--iterations", default=500, type=int)
-    argparser.add_argument("--train", action="store_true")
+    argparser.add_argument("--gpu", action="store_true")
+    argparser.add_argument("--train-edgepredictor", action="store_true")
+    argparser.add_argument("--edgepredictor-file", default="ep.torch")
+    argparser.add_argument("--graphflow-file", default="gf.torch")
     args = argparser.parse_args()
 
     logging.basicConfig(level=logging.DEBUG)
     logger = logging.getLogger(__name__)
 
     sizes = np.random.choice(np.arange(18, 19), size=args.N)
-    # X, A = gen_graphs(sizes)
-    # E = np.array([compute_fgsd_embeddings(a) for a in A])
-    # E = E[:, :, :args.K]
-    # E += 0.05 * np.random.randn(*E.shape)
-    #
-    # _, X, Y = convert_pairwise(A, E)
-    # X = torch.tensor(X, dtype=torch.float)
-    # Y = torch.tensor(Y, dtype=torch.float)
-    #
-    # edge_predictor = EdgePredictor(args.K)
-    # optimizer = optim.Adam(edge_predictor.parameters(), lr=0.01)
-    # for i in range(500):
-    #     optimizer.zero_grad()
-    #     batch_idx = np.random.choice(len(X), size=2000, replace=True)
-    #     loss = edge_predictor.loss(X[batch_idx], Y[batch_idx]).mean()
-    #     loss.backward()
-    #     optimizer.step()
-    #     if i % 1 == 0:
-    #         logger.info(f"Iter: {i}\t" +
-    #                     f"Loss: {loss.mean().data:.2f}\t")
-    #
-    # X, A = gen_graphs([18])
-    # E = np.array([compute_fgsd_embeddings(a) for a in A])
-    # E = E[:, :, :args.K]
-    #
-    # idxs, X, Y = convert_pairwise(A, E)
-    # X = torch.tensor(X, dtype=torch.float)
-    # Y_hat = torch.sigmoid(edge_predictor.forward(X))
-    #
-    # A_hat = reconstruct_adjacency(18, idxs, Y_hat)
-    # A_sample = (np.random.rand(*A_hat.shape) < A_hat).astype(int)
-    # nx.draw(nx.from_numpy_array(A_sample))
-    # plt.show()
-    #
-    # breakpoint()
-    #
-    # torch.save(edge_predictor.state_dict(), "./ckpts/edge_predictor.torch")
 
-    edge_predictor = EdgePredictor(args.K)
-    edge_predictor.load_state_dict(torch.load("./ckpts/edge_predictor.torch"))
+    if args.train_edgepredictor:
+
+        X, A = gen_graphs(sizes)
+        E = np.array([compute_fgsd_embeddings(a) for a in A])
+        E = E[:, :, :args.K]
+        E += 0.05 * np.random.randn(*E.shape)
+
+        _, X, Y = convert_pairwise(A, E)
+        X = torch.tensor(X, dtype=torch.float)
+        Y = torch.tensor(Y, dtype=torch.float)
+
+        edge_predictor = EdgePredictor(args.K)
+        optimizer = optim.Adam(edge_predictor.parameters(), lr=0.01)
+        for i in range(args.iterations):
+            optimizer.zero_grad()
+            batch_idx = np.random.choice(len(X), size=2000, replace=True)
+            loss = edge_predictor.loss(X[batch_idx], Y[batch_idx]).mean()
+            loss.backward()
+            optimizer.step()
+            if i % 1 == 0:
+                logger.info(f"Iter: {i}\t" +
+                            f"Loss: {loss.mean().data:.2f}\t")
+
+        torch.save(edge_predictor.state_dict(), f"./ckpts/{args.edgepredictor_file}")
 
     X, A = gen_graphs(sizes)
     E = np.array([compute_fgsd_embeddings(a) for a in A])
     E = E[:, :, :args.K]
-
     E = torch.tensor(E, dtype=torch.float)
 
-    plt.figure(figsize=(8, 3))
-    for i in range(4):
-        plt.subplot(1, 4, i + 1)
-        plt.imshow(E[i], vmin = -0.8, vmax = 0.8)
-        plt.colorbar()
-    plt.show()
+    model = GF(n_nodes = 18, embedding_dim = args.K, num_flows = 4)
 
-    model = GF(n_nodes = 18, embedding_dim = args.K, num_flows = 1)
-    optimizer = optim.Adam(model.parameters(), lr=0.01)
+    if args.gpu:
+        E = E.gpu()
+        model = model.gpu()
+
+    optimizer = optim.Adam(model.parameters(), lr=0.005)
 
     for i in range(args.iterations):
         optimizer.zero_grad()
@@ -179,22 +164,5 @@ if __name__ == "__main__":
                         f"Prior: {prior_logprob.mean().data:.2f}\t" +
                         f"LogDet: {log_det.mean().data:.2f}")
 
-    breakpoint()
-
-    plt.hist(Z.data.numpy().flatten())
-    plt.show()
-
-    Z = torch.randn(1, 18, args.K)
-    E = model.backward(Z)
-
-    plt.imshow(E[0].data.numpy(), vmin = -0.8, vmax = 0.8)
-    plt.show()
-
-    idxs, X = construct_pairwise_X(E.data.numpy())
-    X = torch.tensor(X, dtype=torch.float)
-    Y_hat = torch.sigmoid(edge_predictor.forward(X))
-    A_hat = reconstruct_adjacency(18, idxs, Y_hat)
-
-    A_sample = (np.random.rand(*A_hat.shape) < A_hat).astype(int)
-    nx.draw(nx.from_numpy_array(A_sample))
-    plt.show()
+        model = model.cpu()
+        torch.save(model.state_dict(), f"./ckpts/{args.graphflow_file}")
