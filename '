@@ -102,8 +102,8 @@ def plot_graphs(X, A):
 if __name__ == "__main__":
 
     argparser = ArgumentParser()
-    argparser.add_argument("--N", default=1000, type=int)
-    argparser.add_argument("--K", default=4, type=int)
+    argparser.add_argument("--N", default=500, type=int)
+    argparser.add_argument("--K", default=3, type=int)
     argparser.add_argument("--edgepredictor-file", default="ep.torch")
     argparser.add_argument("--graphflow-file", default="gf.torch")
     args = argparser.parse_args()
@@ -116,14 +116,8 @@ if __name__ == "__main__":
     edge_predictor = EdgePredictor(args.K)
     edge_predictor.load_state_dict(torch.load(f"./ckpts/{args.edgepredictor_file}"))
 
-    model = GF(n_nodes = 18, embedding_dim = args.K, num_flows = 2, device = "cpu")
+    model = GF(n_nodes = 18, embedding_dim = args.K, num_flows = 6, device = "cpu")
     model.load_state_dict(torch.load(f"./ckpts/{args.graphflow_file}"))
-
-    plt.figure(figsize=(8, 5))
-    losses = np.load("./ckpts/loss_curve.npy")
-    plt.plot(np.arange(len(losses)) + 1, losses, color = "black")
-    plt.title("Training loss")
-    plt.savefig("./ckpts/img/loss.png")
 
     plt.figure(figsize=(8, 6))
     for i in range(8):
@@ -146,15 +140,6 @@ if __name__ == "__main__":
     E_true = np.array([compute_fgsd_embeddings(a) for a in A])
     E_true = E_true[:, :, :args.K]
 
-    Z_true, _, _ = model.forward(torch.tensor(E_true, dtype=torch.float))
-    Z_true = Z_true.data.numpy()
-    plt.figure(figsize=(8, 6))
-    for i in range(Z_true.shape[2]):
-        plt.subplot(2, 2, i + 1)
-        plt.hist(Z_true[:, :, i], bins = 30)
-    plt.tight_layout()
-    plt.savefig("./ckpts/img/hists.png")
-
     plt.figure(figsize=(10, 12))
     for i in range(4):
 
@@ -163,16 +148,14 @@ if __name__ == "__main__":
         plt.title("Truth")
 
         Z_true, _, _ = model.forward(torch.tensor(E_true, dtype=torch.float))
+        E_recon = model.backward(Z_true)
 
         plt.subplot(4, 4, i + 5)
-        plt.imshow(Z_true[i].data.numpy(), cmap = "inferno")
-        plt.title("Corresponding prior")
+        plt.imshow(E_recon[i].data.numpy(), vmin = -0.8, vmax = 0.8)
+        plt.title("Reconstructed")
 
-        Z = model.sample_prior(1)
+        Z = torch.randn(1, 18, args.K)
         E = model.backward(Z)
-        sigma = torch.load("./ckpts/sigma.torch").cpu()
-        mu = torch.load("./ckpts/mu.torch").cpu()
-        E = E * sigma + mu
 
         plt.subplot(4, 4, i + 9)
         plt.imshow(E[0].data.numpy(), vmin = -0.8, vmax = 0.8)
