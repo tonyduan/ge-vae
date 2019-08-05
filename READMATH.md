@@ -103,6 +103,8 @@ The adjacency matrix is a discrete object, so it is not immediately straightforw
 $$
 A \rightarrow E,
 $$
+
+
 where the permutation invariance on $E$ must satisfy
 $$
 p_\theta(PE) = p_\theta(E), \text{for all permutation matrices }P.
@@ -111,6 +113,8 @@ The set transformer is able to satisfy this invariance. Therefore we use a norma
 $$
 Z_1 \leftrightarrow E, \quad\quad Z_1 \sim N(0, \sigma^2 I).
 $$
+
+
 One challenge we observed is that there exists significant multi-modality in $E$. For example, in a two-community graph there will be one mode for each community. Naive use of a normalizing flow was unable to deal with this issue; however, the neural spline flow [Durkan et al. 2019] has seen success at this task.
 
 This gives us a permutation-invariant *likelihood* model. However in order to generate graphs we need some way to decode 

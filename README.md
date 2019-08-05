@@ -91,10 +91,14 @@ We now describe how to model the latent representations <img alt="$Z_1,Z_2$" src
 
 The adjacency matrix is a discrete object, so it is not immediately straightforward how to apply normalizing flows. We choose to use *graph embeddings* to encode the structure of the graph. We can apply a deterministic embedding model to map each
 <p align="center"><img alt="$$&#10;A \rightarrow E,&#10;$$" src="svgs/7c01960697f225163ec7631ca3fa7235.svg" align="middle" width="55.54779944999999pt" height="14.42921205pt"/></p>
+
+
 where the permutation invariance on <img alt="$E$" src="svgs/84df98c65d88c6adf15d4645ffa25e47.svg" align="middle" width="13.08219659999999pt" height="22.465723500000017pt"/> must satisfy
 <p align="center"><img alt="$$&#10;p_\theta(PE) = p_\theta(E), \text{for all permutation matrices }P.&#10;$$" src="svgs/0fe00d824faef1e1c16e6ba175670d0c.svg" align="middle" width="348.7787391pt" height="16.438356pt"/></p>
 The set transformer is able to satisfy this invariance. Therefore we use a normalizing flow for
 <p align="center"><img alt="$$&#10;Z_1 \leftrightarrow E, \quad\quad Z_1 \sim N(0, \sigma^2 I).&#10;$$" src="svgs/68645ce6e87c4678982f1196c16e4994.svg" align="middle" width="211.69496039999996pt" height="18.312383099999998pt"/></p>
+
+
 One challenge we observed is that there exists significant multi-modality in <img alt="$E$" src="svgs/84df98c65d88c6adf15d4645ffa25e47.svg" align="middle" width="13.08219659999999pt" height="22.465723500000017pt"/>. For example, in a two-community graph there will be one mode for each community. Naive use of a normalizing flow was unable to deal with this issue; however, the neural spline flow [Durkan et al. 2019] has seen success at this task.
 
 This gives us a permutation-invariant *likelihood* model. However in order to generate graphs we need some way to decode 
