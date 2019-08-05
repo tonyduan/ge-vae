@@ -106,7 +106,7 @@ if __name__ == "__main__":
     argparser.add_argument("--N", default=2500, type=int)
     argparser.add_argument("--K", default=4, type=int)
     argparser.add_argument("--lr", default=1e-4, type=float)
-    argparser.add_argument("--iterations", default=1000, type=int)
+    argparser.add_argument("--iterations", default=10000, type=int)
     argparser.add_argument("--device", default="cuda:0")
     argparser.add_argument("--train-edgepredictor", action="store_true")
     argparser.add_argument("--edgepredictor-file", default="ep.torch")
@@ -160,8 +160,6 @@ if __name__ == "__main__":
     model = GF(n_nodes = 18, embedding_dim = args.K, num_flows = 2, device = args.device)
     model = model.to(args.device)
     optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay = 1e-5)
-    #scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(
-    #    optimizer, T_0 = 1000, T_mult = 1)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=0.5)
 
     losses = np.zeros(args.iterations)
