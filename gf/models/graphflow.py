@@ -4,6 +4,7 @@ import scipy as sp
 import scipy.linalg
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.nn.init as init
 from torch.distributions import Normal, Bernoulli, MultivariateNormal, Distribution
 from gf.modules.attn import ISAB, PMA, MAB, SAB
@@ -27,46 +28,7 @@ class EdgePredictor(nn.Module):
         logits = self.forward(X).squeeze(2).squeeze(1)
         return -Bernoulli(logits = logits).log_prob(Y)
 
-#
-#class OneByOneConv(nn.Module):
-#    """
-#    Invertible 1x1 convolution.
-#
-#    [Kingma and Dhariwal, 2018.]
-#    """
-#    def __init__(self, dim, device):
-#        super().__init__()
-#        self.dim = dim
-#        self.device = device
-#        W, _ = sp.linalg.qr(np.random.randn(dim, dim))
-#        P, L, U = sp.linalg.lu(W)
-#        self.P = torch.tensor(P, dtype=torch.float, device = self.device)
-#        self.L = nn.Parameter(torch.tensor(L, dtype=torch.float, device = self.device))
-#        self.S = nn.Parameter(torch.tensor(np.diag(U), dtype=torch.float, device = self.device))
-#        self.U = nn.Parameter(torch.tensor(U - np.diag(U), dtype=torch.float, device = self.device))
-#        self.W_inv = None
-#
-#    def forward(self, x):
-#        L = torch.tril(self.L, diagonal = -1) + torch.eye(self.dim, device = self.device)
-#        U = torch.triu(self.U, diagonal = 1)
-#        z = x @ self.P @ L @ (U + torch.diag(self.S))
-#        log_det = torch.sum(torch.log(torch.abs(self.S)))
-#        log_det = log_det.repeat(x.shape[0]) * x.shape[1]
-#        return z, log_det
-#
-#    def backward(self, z):
-#        if self.W_inv is None:
-#            L = torch.tril(self.L, diagonal = -1) + \
-#                torch.eye(self.dim, device = self.device)
-#            U = torch.triu(self.U, diagonal = 1)
-#            W = self.P @ L @ (U + torch.diag(self.S))
-#            self.W_inv = torch.inverse(W)
-#        x = z @ self.W_inv
-#        log_det = -torch.sum(torch.log(torch.abs(self.S)))
-#        log_det = log_det.repeat(z.shape[0]) * z.shape[1]
-#        return x, log_det
-#
-#
+
 class OneByOneConv(nn.Module):
     """
     Invertible 1x1 convolution.
@@ -78,24 +40,32 @@ class OneByOneConv(nn.Module):
         self.dim = dim
         self.device = device
         W, _ = sp.linalg.qr(np.random.randn(dim, dim))
-        W = torch.tensor(W, dtype=torch.float, device = device)
-        self.W = nn.Parameter(W)
+        P, L, U = sp.linalg.lu(W)
+        self.P = torch.tensor(P, dtype=torch.float, device = self.device)
+        self.L = nn.Parameter(torch.tensor(L, dtype=torch.float, device = self.device))
+        self.S = nn.Parameter(torch.tensor(np.diag(U), dtype=torch.float, device = self.device))
+        self.U = nn.Parameter(torch.triu(torch.tensor(U, dtype=torch.float, device = self.device), diagonal = 1))
         self.W_inv = None
 
     def forward(self, x):
-        z = x @ self.W
-        log_det = torch.slogdet(self.W)[1] * x.shape[1]
-        log_det = log_det.repeat(x.shape[0])
+        L = torch.tril(self.L, diagonal = -1) + torch.eye(self.dim, device = self.device)
+        U = torch.triu(self.U, diagonal = 1)
+        z = x @ self.P @ L @ (U + torch.diag(self.S))
+        log_det = torch.sum(torch.log(torch.abs(self.S)))
+        log_det = log_det.repeat(x.shape[0]) * x.shape[1]
         return z, log_det
 
     def backward(self, z):
         if self.W_inv is None:
-            self.W_inv = torch.inverse(self.W)
+            L = torch.tril(self.L, diagonal = -1) + \
+                torch.eye(self.dim, device = self.device)
+            U = torch.triu(self.U, diagonal = 1)
+            W = self.P @ L @ (U + torch.diag(self.S))
+            self.W_inv = torch.inverse(W)
         x = z @ self.W_inv
-        log_det = -torch.slogdet(self.W)[1] * x.shape[1]
-        log_det = log_det.repeat(z.shape[0])
+        log_det = -torch.sum(torch.log(torch.abs(self.S)))
+        log_det = log_det.repeat(z.shape[0]) * z.shape[1]
         return x, log_det
-
 
 class MLP(nn.Module):
     """

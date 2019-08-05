@@ -76,7 +76,7 @@ def interpolate(model, edgepredictor, x1, x2, x3, x4, mu, sigma):
         z = torch.tensor(z, dtype=torch.float)
         E = model.backward(z.unsqueeze(0))[0].data.numpy()
         E = E * sigma.data.numpy()[0] + mu.data.numpy()[0]
-        idxs, X = construct_pairwise_X(E[np.newaxis,:])
+        idxs, X = convert_embeddings_pairwise(E[np.newaxis,:])
         X = torch.tensor(X, dtype=torch.float)
         Y = torch.sigmoid(edge_predictor.forward(X))
         A = reconstruct_adjacency_matrix(18, idxs, Y)
@@ -127,7 +127,7 @@ if __name__ == "__main__":
         X, A = gen_graphs([18])
         E_true = np.array([compute_fgsd_embeddings(a) for a in A])
         E_true = E_true[:, :, :args.K]
-        idxs, X, Y = convert_embeddings_pairwise(A, E_true)
+        idxs, X, Y = convert_embeddings_pairwise(E_true, A)
         X = torch.tensor(X, dtype=torch.float)
         Y_hat = torch.sigmoid(edge_predictor.forward(X))
         A_hat = reconstruct_adjacency_matrix(18, idxs, Y_hat)
@@ -172,7 +172,7 @@ if __name__ == "__main__":
         plt.imshow(E[0].data.numpy(), vmin = -0.8, vmax = 0.8)
         plt.title("Generated")
 
-        idxs, X = construct_pairwise_X(E.data.numpy())
+        idxs, X = convert_embeddings_pairwise(E.data.numpy())
         X = torch.tensor(X, dtype=torch.float)
         Y_hat = torch.sigmoid(edge_predictor.forward(X))
         A_hat = reconstruct_adjacency_matrix(18, idxs, Y_hat)

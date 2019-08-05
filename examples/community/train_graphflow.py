@@ -7,7 +7,7 @@ import numpy as np
 import networkx as nx
 from argparse import ArgumentParser
 from matplotlib import pyplot as plt
-from gf.graphflow import GF, EdgePredictor
+from gf.models.graphflow import GF, EdgePredictor
 from gf.utils import *
 from tqdm import tqdm
 
@@ -96,7 +96,7 @@ if __name__ == "__main__":
             optimizer.step()
             scheduler.step(loss.data.numpy())
             if i % 1 == 0:
-                logger.info(f"Iter: {i}\t" +
+                logger.info(f"Iter: {i}\t" + \
                             f"Loss: {loss.mean().data:.2f}\t")
 
         torch.save(edge_predictor.state_dict(), f"./ckpts/{args.edgepredictor_file}")

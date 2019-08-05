@@ -35,16 +35,19 @@ def convert_embeddings_pairwise(E, A=None):
             first = E_k[i][np.newaxis,:]
             second = E_k[j][np.newaxis,:]
             rest_idx = np.r_[np.arange(i), np.arange(i + 1, j),
-                             np.arange(j + 1, len(A_k))]
+                             np.arange(j + 1, len(E_k))]
             rest = np.take(E_k, rest_idx, axis=0)
             idxs += [(i, j)]
             X += [np.r_[first, second, rest]]
             if A is not None:
                 Y += [A[b][i, j]]
-    return idxs, np.array(X) if A is None else idxs, np.array(X), np.array(Y)
+    if A is None:
+        return idxs, np.array(X)
+    else:
+        return idxs, np.array(X), np.array(Y)
 
 
-def reconstruct_adjacency_matrix_matrix(N, idxs, Y_hat):
+def reconstruct_adjacency_matrix(N, idxs, Y_hat):
     """
     Reconstruct the adjacency matrix from a set of indices and predictions.
 
