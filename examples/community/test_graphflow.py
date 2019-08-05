@@ -8,8 +8,8 @@ import numpy as np
 import networkx as nx
 import matplotlib as mpl
 from argparse import ArgumentParser
-from graphflows.graphflow import GF, EdgePredictor
-from graphflows.fgsd import compute_fgsd_embeddings
+from gf.models.graphflow import GF, EdgePredictor
+from gf.utils import *
 from tqdm import tqdm
 mpl.use("agg")
 from matplotlib import pyplot as plt
@@ -44,50 +44,6 @@ def gen_graphs(sizes, p_intra=0.7, p_inter=0.01):
     return X, A
 
 
-def convert_pairwise(A, E):
-    """
-    Convert to a representation with a pairwise relationship between each node.
-
-    First and second row represent embeddings for the pair in question.
-    Rest of the rows represent embeddings for all remaining pairs.
-    """
-    X, Y, idxs = [], [], []
-    for A_k, E_k in tqdm(zip(A, E), total=len(A)):
-        for (i, j) in itertools.combinations(np.arange(len(A_k)), 2):
-            Y += [A_k[i, j]]
-            first = E_k[i][np.newaxis,:]
-            second = E_k[j][np.newaxis,:]
-            rest_idx = np.r_[np.arange(i), np.arange(i + 1, j),
-                             np.arange(j + 1, len(A_k))]
-            rest = np.take(E_k, rest_idx, axis=0)
-            X += [np.r_[first, second, rest]]
-            idxs+= [(i, j)]
-    return idxs, np.array(X), np.array(Y)
-
-
-def construct_pairwise_X(E):
-    X, idxs = [], []
-    for E_k in tqdm(E, total=len(E)):
-        for (i, j) in itertools.combinations(np.arange(len(E_k)), 2):
-            first = E_k[i][np.newaxis,:]
-            second = E_k[j][np.newaxis,:]
-            rest_idx = np.r_[np.arange(i), np.arange(i + 1, j),
-                             np.arange(j + 1, len(E_k))]
-            rest = np.take(E_k, rest_idx, axis=0)
-            X += [np.r_[first, second, rest]]
-            idxs += [(i, j)]
-    return idxs, np.array(X)
-
-def reconstruct_adjacency(N, idxs, Y_hat):
-    """
-    Reconstruct the adjacency matrix from a set of indices and predictions.
-    """
-    A = np.zeros((N, N))
-    for (i, j), y in zip(idxs, Y_hat):
-        A[i,j] = y
-        A[j,i] = y
-    return A
-
 def plot_graphs(X, A):
     plt.figure(figsize=(8, 3))
     for idx in range(len(A)):
@@ -117,15 +73,15 @@ def interpolate(model, edgepredictor, x1, x2, x3, x4, mu, sigma):
         y = i // 8 * np.pi / 14
         z = np.cos(x) * (np.cos(y) * z1 + np.sin(y) * z2) + \
             np.sin(x) * (np.cos(y) * z3 + np.sin(y) * z4)
-        z = torch.tensor(z, dtype=torch.float) 
+        z = torch.tensor(z, dtype=torch.float)
         E = model.backward(z.unsqueeze(0))[0].data.numpy()
         E = E * sigma.data.numpy()[0] + mu.data.numpy()[0]
         idxs, X = construct_pairwise_X(E[np.newaxis,:])
         X = torch.tensor(X, dtype=torch.float)
         Y = torch.sigmoid(edge_predictor.forward(X))
-        A = reconstruct_adjacency(18, idxs, Y)
+        A = reconstruct_adjacency_matrix(18, idxs, Y)
         A = (np.random.rand(*A.shape) < A).astype(int)
-        nx.draw(nx.from_numpy_array(A), node_color="black", 
+        nx.draw(nx.from_numpy_array(A), node_color="black",
                 node_size = 20)
     plt.tight_layout()
     plt.savefig("./ckpts/img/interpolate.png")
@@ -144,6 +100,7 @@ if __name__ == "__main__":
     logger = logging.getLogger(__name__)
 
     sizes = np.random.choice(np.arange(18, 19), size=args.N)
+    X, A = gen_graphs([18, 18, 18, 18])
 
     edge_predictor = EdgePredictor(args.K)
     edge_predictor.load_state_dict(torch.load(f"./ckpts/{args.edgepredictor_file}"))
@@ -170,10 +127,10 @@ if __name__ == "__main__":
         X, A = gen_graphs([18])
         E_true = np.array([compute_fgsd_embeddings(a) for a in A])
         E_true = E_true[:, :, :args.K]
-        idxs, X, Y = convert_pairwise(A, E_true)
+        idxs, X, Y = convert_embeddings_pairwise(A, E_true)
         X = torch.tensor(X, dtype=torch.float)
         Y_hat = torch.sigmoid(edge_predictor.forward(X))
-        A_hat = reconstruct_adjacency(18, idxs, Y_hat)
+        A_hat = reconstruct_adjacency_matrix(18, idxs, Y_hat)
         A_sample = (np.random.rand(*A_hat.shape) < A_hat).astype(int)
         plt.subplot(4, 2, i + 1)
         nx.draw(nx.from_numpy_array(A_sample), node_color = "black",
@@ -218,7 +175,7 @@ if __name__ == "__main__":
         idxs, X = construct_pairwise_X(E.data.numpy())
         X = torch.tensor(X, dtype=torch.float)
         Y_hat = torch.sigmoid(edge_predictor.forward(X))
-        A_hat = reconstruct_adjacency(18, idxs, Y_hat)
+        A_hat = reconstruct_adjacency_matrix(18, idxs, Y_hat)
 
         plt.subplot(4, 4, i + 13)
         A_sample = (np.random.rand(*A_hat.shape) < A_hat).astype(int)

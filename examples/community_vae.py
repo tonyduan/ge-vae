@@ -6,9 +6,9 @@ import numpy as np
 import networkx as nx
 import matplotlib as mpl
 from argparse import ArgumentParser
-from graphflows.fgsd import compute_fgsd_embeddings
-from graphflows.vae import VAE, InfoVAE, mmd_divergence
-from graphflows.graphflow import GF
+from gf.fgsd import compute_fgsd_embeddings
+from gf.vae import VAE, InfoVAE, mmd_divergence
+from gf.graphflow import GF
 mpl.use("agg")
 from matplotlib import pyplot as plt
 

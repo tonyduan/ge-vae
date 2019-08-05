@@ -6,8 +6,8 @@ import numpy as np
 import networkx as nx
 from argparse import ArgumentParser
 from matplotlib import pyplot as plt
-from graphflows.gnf import GRevNet
-from graphflows.gvae import GVAE
+from gf.gnf import GRevNet
+from gf.gvae import GVAE
 
 
 def gen_graphs(sizes, p_intra=0.7, p_inter=0.01):

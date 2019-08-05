@@ -6,15 +6,14 @@ import torch
 import torch.nn as nn
 import torch.nn.init as init
 from torch.distributions import Normal, Bernoulli, MultivariateNormal, Distribution
-from graphflows.attn import ISAB, PMA, MAB, SAB
-from graphflows.splines import unconstrained_RQS
+from gf.modules.attn import ISAB, PMA, MAB, SAB
+from gf.modules.splines import unconstrained_RQS
 
 
 class EdgePredictor(nn.Module):
 
-    def __init__(self, embedding_dim, hidden_dim=4):
+    def __init__(self, embedding_dim, hidden_dim = 4):
         super().__init__()
-        #self.transform = MLP(embedding_dim, hidden_dim, hidden_dim)
         self.rest_query = MAB(embedding_dim, embedding_dim, embedding_dim, 1)
         self.pair_query = PMA(embedding_dim, num_heads = 1, num_seeds = 1)
         self.fc = nn.Linear(embedding_dim, 1)
@@ -120,7 +119,7 @@ class GFLayerNSF(nn.Module):
     """
     Neural spline flow, coupling layer.
     """
-    def __init__(self, embedding_dim, device, 
+    def __init__(self, embedding_dim, device,
 				 K = 5, B = 3, hidden_dim = 64, base_network = MLP):
         super().__init__()
         self.embedding_dim = embedding_dim
@@ -135,12 +134,6 @@ class GFLayerNSF(nn.Module):
             base_network(embedding_dim // 2, hidden_dim, hidden_dim),
             SAB(hidden_dim, (3 * K - 1) * embedding_dim // 2, 1),
         )
-#        self.f1 = base_network(embedding_dim // 2,  
-#                               (3 * K - 1) * embedding_dim // 2, 
-#                               hidden_dim)
-#        self.f2 = base_network(embedding_dim // 2, 
-#                               (3 * K - 1) * embedding_dim // 2, 
-#                               hidden_dim)
         self.conv = OneByOneConv(embedding_dim, device)
 
     def forward(self, x):
@@ -148,7 +141,7 @@ class GFLayerNSF(nn.Module):
         x, log_det = self.conv(x)
         lower = x[:, :, :self.embedding_dim // 2]
         upper = x[:, :, self.embedding_dim // 2:]
-        out = self.f1(lower).reshape(batch_size, -1, self.embedding_dim // 2, 
+        out = self.f1(lower).reshape(batch_size, -1, self.embedding_dim // 2,
                                      3 * self.K - 1)
         W, H, D = torch.split(out, self.K, dim = 3)
         W, H = torch.softmax(W, dim = 3), torch.softmax(H, dim = 3)
@@ -157,7 +150,7 @@ class GFLayerNSF(nn.Module):
         upper, ld = unconstrained_RQS(
             upper, W, H, D, inverse=False, tail_bound=self.B)
         log_det += torch.sum(ld, dim = (1, 2))
-        out = self.f2(upper).reshape(batch_size, -1, self.embedding_dim // 2, 
+        out = self.f2(upper).reshape(batch_size, -1, self.embedding_dim // 2,
                                      3 * self.K - 1)
         W, H, D = torch.split(out, self.K, dim = 3)
         W, H = torch.softmax(W, dim = 3), torch.softmax(H, dim = 3)
@@ -173,7 +166,7 @@ class GFLayerNSF(nn.Module):
         log_det = torch.zeros_like(z)
         lower = z[:, :, :self.embedding_dim // 2]
         upper = z[:, :, self.embedding_dim // 2:]
-        out = self.f2(upper).reshape(batch_size, -1, self.embedding_dim // 2, 
+        out = self.f2(upper).reshape(batch_size, -1, self.embedding_dim // 2,
                                      3 * self.K - 1)
         W, H, D = torch.split(out, self.K, dim = 3)
         W, H = torch.softmax(W, dim = 3), torch.softmax(H, dim = 3)
@@ -182,7 +175,7 @@ class GFLayerNSF(nn.Module):
         lower, ld = unconstrained_RQS(
             lower, W, H, D, inverse=True, tail_bound=self.B)
         log_det += torch.sum(ld, dim = (1, 2))
-        out = self.f1(lower).reshape(batch_size, -1, self.embedding_dim // 2, 
+        out = self.f1(lower).reshape(batch_size, -1, self.embedding_dim // 2,
                                      3 * self.K - 1)
         W, H, D = torch.split(out, self.K, dim = 3)
         W, H = torch.softmax(W, dim = 3), torch.softmax(H, dim = 3)
@@ -195,7 +188,7 @@ class GFLayerNSF(nn.Module):
         return x, log_det + ld
 
 
-class GFLayer(nn.Module):
+class GFLayerMAF(nn.Module):
     """
     Masked auto-regressive flow style layer.
     """
@@ -210,8 +203,6 @@ class GFLayer(nn.Module):
         for i in range(1, embedding_dim):
             self.fc_layers += [MLP(i, 16, hidden_dim = 128)]
             self.attn_layers += [SAB(16, 2, num_heads = 1)]
-            #self.fc_layers += [MLP(i, 2, hidden_dim = 128)]
-            #self.fc_layers += [nn.Linear(i, 2)]
         init.uniform_(self.initial_param, -math.sqrt(0.5), math.sqrt(0.5))
 
     def forward(self, X):
@@ -222,7 +213,7 @@ class GFLayer(nn.Module):
         Z = torch.zeros_like(X)
         Z, conv_logdet = self.conv(X)
         logdet = torch.zeros(X.shape[0], device=self.device)
-        for i in range(self.embedding_dim): 
+        for i in range(self.embedding_dim):
             if i == 0:
                 mu, alpha = self.initial_param[0], self.initial_param[1]
                 alpha = alpha.repeat(X.shape[0], X.shape[1])

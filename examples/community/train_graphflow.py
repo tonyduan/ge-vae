@@ -7,8 +7,8 @@ import numpy as np
 import networkx as nx
 from argparse import ArgumentParser
 from matplotlib import pyplot as plt
-from graphflows.graphflow import GF, EdgePredictor
-from graphflows.fgsd import compute_fgsd_embeddings
+from gf.graphflow import GF, EdgePredictor
+from gf.utils import *
 from tqdm import tqdm
 
 
@@ -43,50 +43,6 @@ def gen_graphs(sizes, p_intra=0.7, p_inter=0.01):
         A[idx] = graph
     return X, A
 
-
-def convert_pairwise(A, E):
-    """
-    Convert to a representation with a pairwise relationship between each node.
-
-    First and second row represent embeddings for the pair in question.
-    Rest of the rows represent embeddings for all remaining pairs.
-    """
-    X, Y, idxs = [], [], []
-    for A_k, E_k in tqdm(zip(A, E), total=len(A)):
-        for (i, j) in itertools.combinations(np.arange(len(A_k)), 2):
-            Y += [A_k[i, j]]
-            first = E_k[i][np.newaxis,:]
-            second = E_k[j][np.newaxis,:]
-            rest_idx = np.r_[np.arange(i), np.arange(i + 1, j),
-                             np.arange(j + 1, len(A_k))]
-            rest = np.take(E_k, rest_idx, axis=0)
-            X += [np.r_[first, second, rest]]
-            idxs+= [(i, j)]
-    return idxs, np.array(X), np.array(Y)
-
-
-def construct_pairwise_X(E):
-    X, idxs = [], []
-    for E_k in tqdm(E, total=len(E)):
-        for (i, j) in itertools.combinations(np.arange(len(E_k)), 2):
-            first = E_k[i][np.newaxis,:]
-            second = E_k[j][np.newaxis,:]
-            rest_idx = np.r_[np.arange(i), np.arange(i + 1, j),
-                             np.arange(j + 1, len(E_k))]
-            rest = np.take(E_k, rest_idx, axis=0)
-            X += [np.r_[first, second, rest]]
-            idxs += [(i, j)]
-    return idxs, np.array(X)
-
-def reconstruct_adjacency(N, idxs, Y_hat):
-    """
-    Reconstruct the adjacency matrix from a set of indices and predictions.
-    """
-    A = np.zeros((N, N))
-    for (i, j), y in zip(idxs, Y_hat):
-        A[i,j] = y
-        A[j,i] = y
-    return A
 
 def plot_graphs(X, A):
     plt.figure(figsize=(8, 3))
@@ -125,7 +81,7 @@ if __name__ == "__main__":
         E = E[:, :, :args.K]
         E += 0.05 * np.random.randn(*E.shape)
 
-        _, X, Y = convert_pairwise(A, E)
+        _, X, Y = convert_embeddings_pairwise(E, A)
         X = torch.tensor(X, dtype=torch.float)
         Y = torch.tensor(Y, dtype=torch.float)
 
@@ -150,7 +106,7 @@ if __name__ == "__main__":
     E = E[:, :, :args.K]
     E = torch.tensor(E, dtype=torch.float, device=args.device)
     E = E + 0.02 * torch.randn(*E.shape, device = args.device)
-    
+
     mu = torch.mean(E, dim = (0, 1)).unsqueeze(0).unsqueeze(0)
     sigma = torch.std(E, dim = (0, 1)).unsqueeze(0).unsqueeze(0)
     E = (E - mu) / sigma

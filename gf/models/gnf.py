@@ -3,8 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.init as init
 import torch.nn.functional as F
-from graphflows.attn import MAB, PMA
-from graphflows.sparsemax import Sparsemax
+from graphflows.modules.attn import MAB, PMA
 from torch.distributions import MultivariateNormal, Bernoulli
 
 
@@ -20,7 +19,6 @@ class AttnBlock(nn.Module):
         self.fc_K = nn.Linear(dim_K, dim_V)
         self.fc_V = nn.Linear(dim_K, dim_V)
         self.fc_O = nn.Linear(dim_V, dim_V)
-        self.sparsemax = Sparsemax(dim = 2)
 
     def forward(self, Q, V, A):
         B, _, _ = Q.shape
@@ -30,7 +28,6 @@ class AttnBlock(nn.Module):
         K_ = torch.cat(K.split(dim_split, dim=2), dim=0)
         V_ = torch.cat(V.split(dim_split, dim=2), dim=0)
         logits = (Q_ @ K_.transpose(1, 2) / self.dim_V ** 0.5) + (1 - A) * -10 ** 10
-        O = self.sparsemax(logits)
         O = torch.cat(O.split(B,), dim=2)
         return O
 
