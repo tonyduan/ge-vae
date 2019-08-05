@@ -117,10 +117,14 @@ This gives us a permutation-invariant *likelihood* model. However in order to ge
 $$
 E \rightarrow A.
 $$
+
+
 The most precise approach is to store a database of mappings $$E \leftrightarrow A$$ and perform a lookup; however this would require $O(2^{n^2})$ entries where $n$ is the number of nodes in the graph. This does not scale, so instead we train a decoder
 $$
 p_\phi(A_{i,j} = 1 | E_i,E_j)
 $$
+
+
 in order to generate the adjacency matrix $A$. Unfortunately this adds some stochasticity to the generation layer, but there doesn't appear to be a better way to do this for now.
 
 ---

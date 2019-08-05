@@ -99,8 +99,12 @@ One challenge we observed is that there exists significant multi-modality in <im
 
 This gives us a permutation-invariant *likelihood* model. However in order to generate graphs we need some way to decode 
 <p align="center"><img alt="$$&#10;E \rightarrow A.&#10;$$" src="svgs/6c720665e41643d0d8c3a553d3ff8e1a.svg" align="middle" width="55.54779944999999pt" height="11.232861749999998pt"/></p>
+
+
 The most precise approach is to store a database of mappings <p align="center"><img alt="$$E \leftrightarrow A$$" src="svgs/22e24b2ca54e9e069d0e413a3e8dc268.svg" align="middle" width="50.981576249999996pt" height="11.232861749999998pt"/></p> and perform a lookup; however this would require <img alt="$O(2^{n^2})$" src="svgs/d82b67c5881fbd29811a4a071b16ff1c.svg" align="middle" width="49.36361924999999pt" height="32.44583099999998pt"/> entries where <img alt="$n$" src="svgs/55a049b8f161ae7cfeb0197d75aff967.svg" align="middle" width="9.86687624999999pt" height="14.15524440000002pt"/> is the number of nodes in the graph. This does not scale, so instead we train a decoder
 <p align="center"><img alt="$$&#10;p_\phi(A_{i,j} = 1 | E_i,E_j)&#10;$$" src="svgs/1fe03e3e159b88ac54f44a5ab76b5e90.svg" align="middle" width="136.26980565pt" height="17.031940199999998pt"/></p>
+
+
 in order to generate the adjacency matrix <img alt="$A$" src="svgs/53d147e7f3fe6e47ee05b88b166bd3f6.svg" align="middle" width="12.32879834999999pt" height="22.465723500000017pt"/>. Unfortunately this adds some stochasticity to the generation layer, but there doesn't appear to be a better way to do this for now.
 
 ---
