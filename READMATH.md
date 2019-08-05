@@ -58,23 +58,23 @@ GuacaMol uses a cleaned up version of the ChEMBL 24 dataset, and evaluates for t
 
 MOSES uses the ZINC database, which has been criticized for being a bit biased. It evaluates task (2) only. They found that the SMILES LSTM from [Gómez-Bombarelli et. al. 2018] is highly performant.
 
-#### Paths Forward
+#### Path Forward
 
-Our idea moving forward is to decompose a graph into its structure (adjacency matrix) and its node labels. We represent structure with the Laplacian embedding on each node, so that the embeddings on the nodes can be treated as a set (but without further permutation invariance within each embedding). Then we have a two-step process:
-1. Use set-invariant NVP to flow from Laplacian embeddings into Gaussian random vectors.
+Our idea moving forward is to decompose a graph into its structure (adjacency matrix) and its node labels. We represent structure with a Laplacian embedding on each node, so that the embeddings on the nodes can be treated as a set (but without further permutation invariance within each embedding).  Further work plans to investigate the benefits of other embeddings, such as [Abu-El_haija et al. 2018]. Then we have a two-step process:
+1. Use a set-invariant flow from Laplacian embeddings into Gaussian random vectors.
 2. Use a separate decoder to predict pairwise edge probabilities from Laplacian embeddings.
 
-One goal of our work is to scale up to generate large graphs after training on small graphs.
+One goal of our work is to scale up to generate large graphs after training on small graphs. 
 
-Another possible idea to enforce permutation invariance is to permute each adjacency matrix (by degree of nodes, then left-ordering [Bloem-Reddy and Teh, 2019]) prior to training. Then the generation process can follow a sequential decoding procedure, enforcing for example the degree of each subsequent node.
+Another possible idea (which we haven't pursued) to enforce permutation invariance is to permute each adjacency matrix (by degree of nodes, then left-ordering [Bloem-Reddy and Teh, 2019]) prior to training. Then the generation process can follow a sequential decoding procedure, enforcing for example the degree of each subsequent node.
 
 ---
 
-# Normalizing Flows for Graphs Proposal [OUTDATED PLEASE IGNORE]
+### Proposal: normalizing flows for permutation-invariant graph generation
 
 ### Idea
 
-We follow the notation of [Grover et. al. 2019], repeated below. 
+We follow the notation of [Grover et al. 2019].
 
 Let $G=(V,E)$ denote a weighted undirected graph which we represent with a set of node features $X \in \mathbb{R}^{n,m}$ and an adjacency matrix $A \in \{0,1\}^{n,n}$, where $n=|V|$. 
 
@@ -87,7 +87,7 @@ $$
 \end{align*}
 $$
 
-Ideally we want to learn a latent representation $Z_1$ for the graph structure $A$ and a latent representation $Z_2$ for the graph nodes $X$ (such that structure and node features are disentangled). The graphical model looks like
+That is, we want to learn a latent representation $Z_1$ for the graph structure $A$ and a latent representation $Z_2$ for the graph nodes $X$ (such that structure and node features are disentangled). The graphical model looks like
 $$
 Z_1 \leftrightarrow A \rightarrow X \leftrightarrow Z_2.
 $$
@@ -99,28 +99,33 @@ We now describe how to model the latent representations $Z_1,Z_2$.
 
 #### Adjacency Matrix
 
-The adjacency matrix is a discrete object. We can instead represent $A$ using de-quantized logits,
+The adjacency matrix is a discrete object, so it is not immediately straightforward how to apply normalizing flows. We choose to use *graph embeddings* to encode the structure of the graph. We can apply a deterministic embedding model to map each
 $$
-\tilde{A} = \sigma^{-1}(A + \epsilon),
+A \rightarrow E,
 $$
-where $\epsilon$ is appropriate noise. The flow process therefore looks like the below.
+where the permutation invariance on $E$ must satisfy
 $$
-Z_1 \sim N(0, \sigma^2I)\quad\quad \tilde{A} = f_\theta(Z_1)f_\theta(Z_1)^\top
+p_\theta(PE) = p_\theta(E), \text{for all permutation matrices }P.
 $$
+The set transformer is able to satisfy this invariance. Therefore we use a normalizing flow for
+$$
+Z_1 \leftrightarrow E, \quad\quad Z_1 \sim N(0, \sigma^2 I).
+$$
+One challenge we observed is that there exists significant multi-modality in $E$. For example, in a two-community graph there will be one mode for each community. Naive use of a normalizing flow was unable to deal with this issue; however, the neural spline flow [Durkan et al. 2019] has seen success at this task.
 
-
-Note that graphs have permutation symmetry; we let $P$ denote a permutation matrix of the same dimensionality as $A$. Ideally we want
+This gives us a permutation-invariant *likelihood* model. However in order to generate graphs we need some way to decode 
 $$
-p_\theta(A) = p_\theta(P^\top AP), \text{for all permutations }P.
+E \rightarrow A.
 $$
-We use a *set transformer* to maintain permutation invariance in the function $f_\theta$.
+The most precise approach is to store a database of mappings $$E \leftrightarrow A$$ and perform a lookup; however this would require $O(2^{n^2})$ entries where $n$ is the number of nodes in the graph. This does not scale, so instead we train a decoder
 $$
-f_\theta(Z_1) = [...]
+p_\phi(A_{i,j} = 1 | E_i,E_j)
 $$
+in order to generate the adjacency matrix $A$. Unfortunately this adds some stochasticity to the generation layer, but there doesn't appear to be a better way to do this for now.
 
 ---
 
-Note that an alternative approach would be to follow [Kipf and Welling 2016], and use a variational auto-encoder instead of a discrete flow. 
+As a baseline, we consider the graph variational auto-encoder of [Kipf and Welling 2016], instead of a flow. Their model factorizes
 $$
 \begin{align*}
 	p_\theta(A|Z_1) & = \sigma_\theta(Z_1 Z_1^\top)\\
@@ -129,13 +134,13 @@ $$
 $$
 
 
-However, this does not exhibit permutation invariance and therefore did not work well in practice.
+However, this model does not exhibit permutation invariance and we suspect it will not work as well on downstream tasks.
 
 ---
 
 #### Node Features
 
-Following [Liu et. al. 2019], we use bipartite (i.e. RealNVP) normalizing flows over a message-passing framework to describe a latent-variable model for $X$. 
+Following [Liu et. al. 2019], we use bipartite (i.e. RealNVP) normalizing flows over a message-passing model to describe a latent-variable model for $X$. 
 $$
 Z_2 \sim N(0, \sigma^2I) \quad \quad X|A = f_\theta(Z_2;A).
 $$
