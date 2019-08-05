@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.nn.init as init
 from torch.distributions import Normal, Bernoulli, MultivariateNormal, Distribution
 from graphflows.attn import ISAB, PMA, MAB, SAB
-from graphflows.utils import *
+from graphflows.splines import unconstrained_RQS
 
 
 class EdgePredictor(nn.Module):
@@ -106,9 +106,9 @@ class MLP(nn.Module):
         super().__init__()
         self.network = nn.Sequential(
             nn.Linear(in_dim, hidden_dim),
-            nn.Tanh(),
+            nn.ReLU(),
             nn.Linear(hidden_dim, hidden_dim),
-            nn.Tanh(),
+            nn.ReLU(),
             nn.Linear(hidden_dim, out_dim),
         )
 
@@ -135,12 +135,12 @@ class GFLayerNSF(nn.Module):
             base_network(embedding_dim // 2, hidden_dim, hidden_dim),
             SAB(hidden_dim, (3 * K - 1) * embedding_dim // 2, 1),
         )
-        #self.f1 = base_network(embedding_dim // 2,  
-        #                       (3 * K - 1) * embedding_dim // 2, 
-        #                       hidden_dim)
-        #self.f2 = base_network(embedding_dim // 2, 
-        #                       (3 * K - 1) * embedding_dim // 2, 
-        #                       hidden_dim)
+#        self.f1 = base_network(embedding_dim // 2,  
+#                               (3 * K - 1) * embedding_dim // 2, 
+#                               hidden_dim)
+#        self.f2 = base_network(embedding_dim // 2, 
+#                               (3 * K - 1) * embedding_dim // 2, 
+#                               hidden_dim)
         self.conv = OneByOneConv(embedding_dim, device)
 
     def forward(self, x):

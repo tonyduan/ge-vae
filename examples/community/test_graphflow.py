@@ -1,5 +1,6 @@
 import logging
 import itertools
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -98,6 +99,37 @@ def plot_graphs(X, A):
     plt.show()
 
 
+def interpolate(model, edgepredictor, x1, x2, x3, x4, mu, sigma):
+    x1 = (x1 - mu) / sigma
+    x2 = (x2 - mu) / sigma
+    x3 = (x3 - mu) / sigma
+    x4 = (x4 - mu) / sigma
+    z1 = model.forward(x1)[0].data.numpy()[0]
+    z2 = model.forward(x2)[0].data.numpy()[0]
+    z3 = model.forward(x3)[0].data.numpy()[0]
+    z4 = model.forward(x4)[0].data.numpy()[0]
+    x = np.arange(0, 8 * np.pi / 14, np.pi / 14)
+    y = np.arange(0, 8 * np.pi / 14, np.pi / 14)
+    plt.figure(figsize=(16, 16))
+    for i in range(64):
+        plt.subplot(8, 8, i + 1)
+        x = i % 8 * np.pi / 14
+        y = i // 8 * np.pi / 14
+        z = np.cos(x) * (np.cos(y) * z1 + np.sin(y) * z2) + \
+            np.sin(x) * (np.cos(y) * z3 + np.sin(y) * z4)
+        z = torch.tensor(z, dtype=torch.float) 
+        E = model.backward(z.unsqueeze(0))[0].data.numpy()
+        E = E * sigma.data.numpy()[0] + mu.data.numpy()[0]
+        idxs, X = construct_pairwise_X(E[np.newaxis,:])
+        X = torch.tensor(X, dtype=torch.float)
+        Y = torch.sigmoid(edge_predictor.forward(X))
+        A = reconstruct_adjacency(18, idxs, Y)
+        A = (np.random.rand(*A.shape) < A).astype(int)
+        nx.draw(nx.from_numpy_array(A), node_color="black", 
+                node_size = 20)
+    plt.tight_layout()
+    plt.savefig("./ckpts/img/interpolate.png")
+
 
 if __name__ == "__main__":
 
@@ -118,12 +150,19 @@ if __name__ == "__main__":
 
     model = GF(n_nodes = 18, embedding_dim = args.K, num_flows = 2, device = "cpu")
     model.load_state_dict(torch.load(f"./ckpts/{args.graphflow_file}"))
+    sigma = torch.load("./ckpts/sigma.torch").cpu()
+    mu = torch.load("./ckpts/mu.torch").cpu()
 
     plt.figure(figsize=(8, 5))
     losses = np.load("./ckpts/loss_curve.npy")
     plt.plot(np.arange(len(losses)) + 1, losses, color = "black")
     plt.title("Training loss")
     plt.savefig("./ckpts/img/loss.png")
+
+    X, A = gen_graphs([18, 18, 18, 18])
+    E = np.array([compute_fgsd_embeddings(a) for a in A])
+    E = torch.tensor(E[:, :, :args.K], dtype=torch.float)
+    interpolate(model, edge_predictor, E[0], E[1], E[2], E[3], mu, sigma)
 
     plt.figure(figsize=(8, 6))
     for i in range(8):
@@ -170,8 +209,6 @@ if __name__ == "__main__":
 
         Z = model.sample_prior(1)
         E = model.backward(Z)
-        sigma = torch.load("./ckpts/sigma.torch").cpu()
-        mu = torch.load("./ckpts/mu.torch").cpu()
         E = E * sigma + mu
 
         plt.subplot(4, 4, i + 9)

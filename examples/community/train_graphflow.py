@@ -106,7 +106,7 @@ if __name__ == "__main__":
     argparser.add_argument("--N", default=2500, type=int)
     argparser.add_argument("--K", default=4, type=int)
     argparser.add_argument("--lr", default=1e-4, type=float)
-    argparser.add_argument("--iterations", default=10000, type=int)
+    argparser.add_argument("--iterations", default=5000, type=int)
     argparser.add_argument("--device", default="cuda:0")
     argparser.add_argument("--train-edgepredictor", action="store_true")
     argparser.add_argument("--edgepredictor-file", default="ep.torch")
