@@ -289,10 +289,7 @@ class GF(nn.Module):
         self.n_nodes_log_sigma = nn.Parameter(torch.zeros(1, device = device))
 
     def sample_prior(self, n_batch):
-        n_nodes_distn = Normal(loc = self.n_nodes_mu * 1000,
-                               scale = torch.exp(self.n_nodes_log_sigma * 1000))
-        #n_nodes = int(torch.round(n_nodes_distn.sample()))
-        n_nodes = 15
+        n_nodes = 10
         prior = Normal(loc = torch.zeros(n_nodes * self.embedding_dim, 
                                          device = self.device),
                        scale = torch.ones(n_nodes * self.embedding_dim, 
@@ -304,7 +301,7 @@ class GF(nn.Module):
     def forward(self, X):
         """
         Returns:
-            log probability per node plus log probability of number of nodes
+            log probability per node
         """
         batch_size, n_nodes = X.shape[0], X.shape[1]
         log_det = torch.zeros(batch_size, device=self.device)
@@ -317,10 +314,7 @@ class GF(nn.Module):
                                           device = self.device))
         Z, prior_logprob = X, prior.log_prob(X.view(batch_size, -1))
         prior_logprob = torch.sum(prior_logprob, dim = 1) / n_nodes
-        n_nodes_distn = Normal(loc = self.n_nodes_mu * 1000,
-                               scale = torch.exp(self.n_nodes_log_sigma * 1000))
-        n_nodes_logprob = n_nodes_distn.log_prob(n_nodes).repeat(batch_size)
-        return Z, prior_logprob + log_det + n_nodes_logprob
+        return Z, prior_logprob + log_det
 
     def backward(self, Z):
         B, N, _ = Z.shape

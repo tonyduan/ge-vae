@@ -6,7 +6,7 @@ import itertools
 from tqdm import tqdm
 
 
-def convert_embeddings_pairwise(E, V, A=None):
+def convert_embeddings_pairwise(E, A=None):
     """
     Convert to a representation with a pairwise relationship between each node.
 
@@ -16,8 +16,6 @@ def convert_embeddings_pairwise(E, V, A=None):
     Parameters
     ----------
     E: (batch_size) x (n_nodes) x (n_features) set of embeddings
-
-    V: (batch_size) count of nodes per graph
 
     A: (batch_size) x (n_nodes) x (n_nodes) adjacency matrix entries {0, 1}
         if A is None, that means we don't have labels
@@ -32,13 +30,13 @@ def convert_embeddings_pairwise(E, V, A=None):
         only returned if A is not None
     """
     X, Y, idxs = [], [], []
-    for b, (E_k, V_k) in tqdm(enumerate(zip(E, V)), total=len(V)):
-        for (i, j) in itertools.combinations(np.arange(V_k), 2):
+    for b, E_k in tqdm(enumerate(E), total=len(E)):
+        for (i, j) in itertools.combinations(np.arange(len(E_k)), 2):
             first = E_k[i][np.newaxis,:]
             second = E_k[j][np.newaxis,:]
             rest_idx = np.r_[np.arange(i), np.arange(i + 1, j),
-                             np.arange(j + 1, V_k)]
-            rest = np.take(E_k, rest_idx, axis=0)
+                             np.arange(j + 1, len(E_k))]
+            rest = np.take(E_k, rest_idx, axis = 0)
             idxs += [(i, j)]
             X += [np.r_[first, second, rest]]
             if A is not None:
