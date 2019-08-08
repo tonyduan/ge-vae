@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.init as init
 import torch.nn.functional as F
-from graphflows.modules.attn import MAB, PMA
+from gf.modules.attn import MAB, PMA
 from torch.distributions import MultivariateNormal, Bernoulli
 
 
