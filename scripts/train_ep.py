@@ -15,9 +15,10 @@ if __name__ == "__main__":
     argparser.add_argument("--K", default=4, type=int)
     argparser.add_argument("--dataset", default="community")
     argparser.add_argument("--lr", default=0.005, type=float)
-    argparser.add_argument("--iterations", default=30000, type=int)
+    argparser.add_argument("--iterations", default=1000, type=int)
     argparser.add_argument("--device", default="cuda:0")
-    argparser.add_argument("--noise", default=0.05, type=float)
+    argparser.add_argument("--noise", default=0.005, type=float)
+    argparser.add_argument("--load", action="store_true")
     args = argparser.parse_args()
 
     logging.basicConfig(level=logging.DEBUG)
@@ -29,6 +30,7 @@ if __name__ == "__main__":
 
     E = [e[:, :args.K] for e in E]
     E = [e + args.noise * np.random.randn(*e.shape) for e in E]
+    E, A = zip(*sorted(zip(E, A), key = lambda t: len(t[0])))
 
     _, X, Y = convert_embeddings_pairwise(E, A)
     edge_data = EdgeDataset(X, Y)
@@ -39,6 +41,12 @@ if __name__ == "__main__":
     edge_predictor = EdgePredictor(args.K)
     optimizer = optim.Adam(edge_predictor.parameters(), lr = args.lr)
     #scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor = 0.5)
+    epoch_no = 1
+
+    if args.load:
+        edge_predictor.load_state_dict(torch.load("./ckpts/ep/weights.torch")) 
+        print("Successfully loaded model.")
+
 
     for i in range(args.iterations):
         optimizer.zero_grad()
@@ -47,13 +55,16 @@ if __name__ == "__main__":
         except StopIteration:
             iterator = iter(dataloader)
             X_batch, Y_batch = next(iterator)
+            epoch_no += 1
         loss = edge_predictor.loss(X_batch, Y_batch).mean()
         loss.backward()
         optimizer.step()
         #scheduler.step(loss.data.numpy())
         if i % 1 == 0:
             logger.info(f"Iter: {i}\t" + \
-                        f"Loss: {loss.mean().data:.2f}\t")
+                        f"Loss: {loss.mean().data:.2f}\t" + \
+                        f"Batch size: {len(X_batch)}\t" + \
+                        f"Epoch: {epoch_no}")
 
     torch.save(edge_predictor.state_dict(), f"./ckpts/ep/weights.torch")
 

@@ -22,9 +22,10 @@ if __name__ == "__main__":
     argparser.add_argument("--dataset", default="community")
     argparser.add_argument("--K", default=4, type=int)
     argparser.add_argument("--lr", default=1e-4, type=float)
-    argparser.add_argument("--iterations", default=5000, type=int)
+    argparser.add_argument("--iterations", default=10000, type=int)
     argparser.add_argument("--device", default="cuda:0")
     argparser.add_argument("--noise", default=0.025, type=float)
+    argparser.add_argument("--load", action="store_true")
     args = argparser.parse_args()
 
     logging.basicConfig(level=logging.DEBUG)
@@ -42,6 +43,7 @@ if __name__ == "__main__":
     np.save("./ckpts/gf/mu.npy", mu)
     np.save("./ckpts/gf/sigma.npy", sigma)
     E = [(e - mu) / sigma for e in E]
+    E = list(sorted(E, key = lambda e: len(e)))
 
     dataset = EmbeddingDataset(E, device = args.device)
     sampler = EmbeddingBatchSampler(dataset, batch_size = 500)
@@ -49,6 +51,10 @@ if __name__ == "__main__":
     iterator = iter(dataloader)
 
     model = GF(embedding_dim = args.K, num_flows = 2, device = args.device)
+
+    if args.load:
+        model.load_state_dict(torch.load("./ckpts/gf/weights.torch"))
+
     model = model.to(args.device)
     optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay = 1e-5)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor = 0.5)
@@ -61,7 +67,7 @@ if __name__ == "__main__":
             E_batch = next(iterator)
         except StopIteration:
             iterator = iter(dataloader)
-            X_batch, Y_batch = next(iterator)
+            E_batch = next(iterator)
         Z, logprob = model.forward(E_batch)
         loss = -torch.mean(logprob)
         loss.backward()
@@ -70,15 +76,16 @@ if __name__ == "__main__":
         #scheduler.step(losses[i])
         if i % 1 == 0:
             logger.info(f"Iter: {i}\t" +
-                        f"Logprob: {-loss.data:.2f}\t")
+                        f"Logprob: {-loss.data:.2f}\t" + 
+                        f"Batch size: {len(E_batch)}")
 
     model = model.cpu()
     torch.save(model.state_dict(), "./ckpts/gf/weights.torch")
     np.save("./ckpts/gf/loss_curve.npy", losses)
     
     plt.figure(figsize=(8, 5))
-    losses = np.load("./ckpts/loss_curve.npy")
-    plt.plot(np.arange(len(losses)) + 1, losses, color = "black")
+    losses = np.load("./ckpts/gf/loss_curve.npy")
+    plt.plot(np.arange(len(losses)) + 1, losses, color = "black", alpha = 0.5)
     plt.title("Training loss")
-    plt.savefig("./ckpts/gf/loss.png")
+    plt.savefig("./ckpts/gf/loss_curve.png")
 
