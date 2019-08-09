@@ -78,11 +78,13 @@ def compute_fgsd_embeddings(A, eps=1e-2):
     -------
     E: (n_nodes x n_nodes) Laplacian embeddings
     """
-    D = np.diag(np.sum(A, axis=1))
-    L = D - A
+    D = np.sum(A, axis=1)
+    L = np.diag(D) - A
     W, V = np.linalg.eigh(L)
     if np.mean(V[:,0]) < 0: # due to numerical imprecision
         V[:,0] = -V[:,0]
+    if np.std(V[:,0] > 0):
+        breakpoint()
     W[W < eps] = 1 / len(A) # scales with number of nodes
     W[W > eps] = 1 / W[W > eps]
     E = V @ np.diag(np.sqrt(W))

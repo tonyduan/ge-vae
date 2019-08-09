@@ -11,7 +11,7 @@ def gen_graphs(sizes, p_intra=0.7, p_inter=0.01):
     """
     max_size = np.max(sizes)
     A = []
-    for idx, V in enumerate(sizes):
+    for V in sizes:
         comms = [nx.gnp_random_graph(V // 2, p_intra),
                  nx.gnp_random_graph((V + 1) // 2, p_intra)]
         graph = nx.disjoint_union_all(comms)
@@ -25,6 +25,9 @@ def gen_graphs(sizes, p_intra=0.7, p_inter=0.01):
         P = np.eye(V)
         np.random.shuffle(P)
         graph = P.T @ graph @ P
+        if nx.number_connected_components(nx.from_numpy_array(graph)) > 1:
+            sizes += [V]
+            continue
         A.append(graph)
     return np.array(A)
 
@@ -40,6 +43,7 @@ if __name__ == "__main__":
     np.random.seed(args.seed)
 
     V = np.random.choice(np.arange(10, 20), size = args.train_N)
+    #V = np.ones(args.train_N, dtype = int) * 16
     A = gen_graphs(V)
     E = np.array([compute_fgsd_embeddings(a) for a in A])
 

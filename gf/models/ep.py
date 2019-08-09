@@ -1,6 +1,6 @@
 import torch.nn as nn
 from torch.distributions import Bernoulli
-from gf.modules.attn import MAB, PMA
+from gf.modules.attn import MAB, PMA, SAB
 
 
 class EdgePredictor(nn.Module):
@@ -19,4 +19,24 @@ class EdgePredictor(nn.Module):
     def loss(self, X, Y):
         logits = self.forward(X).squeeze(2).squeeze(1)
         return -Bernoulli(logits = logits).log_prob(Y)
+
+
+class EdgePredictor(nn.Module):
+
+    def __init__(self, embedding_dim, device):
+        super().__init__()
+        self.pos_query = nn.Sequential(
+            SAB(embedding_dim, embedding_dim, num_heads = 1),
+            SAB(embedding_dim, embedding_dim, num_heads = 1),
+            SAB(embedding_dim, embedding_dim, num_heads = 1)
+        )
+        self.device = device
+
+    def forward(self, E):
+        Z = self.pos_query(E)
+        return Z @ Z.transpose(1, 2)
+
+    def loss(self, E, A):
+        logits = self.forward(E)
+        return -Bernoulli(logits = logits).log_prob(A)
 

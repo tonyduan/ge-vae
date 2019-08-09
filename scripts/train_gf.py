@@ -9,7 +9,7 @@ import matplotlib as mpl
 from argparse import ArgumentParser
 from matplotlib import pyplot as plt
 from torch.utils.data.dataloader import DataLoader
-from gf.models.graphflow import GF
+from gf.models.gf import GF
 from gf.utils import *
 from gf.datasets import EmbeddingDataset, EmbeddingBatchSampler
 from tqdm import tqdm
@@ -22,8 +22,9 @@ if __name__ == "__main__":
     argparser.add_argument("--dataset", default="community")
     argparser.add_argument("--K", default=4, type=int)
     argparser.add_argument("--lr", default=1e-4, type=float)
-    argparser.add_argument("--iterations", default=10000, type=int)
+    argparser.add_argument("--iterations", default=2000, type=int)
     argparser.add_argument("--device", default="cuda:0")
+    argparser.add_argument("--batch-size", default=2000, type=int)
     argparser.add_argument("--noise", default=0.025, type=float)
     argparser.add_argument("--load", action="store_true")
     args = argparser.parse_args()
@@ -46,7 +47,7 @@ if __name__ == "__main__":
     E = list(sorted(E, key = lambda e: len(e)))
 
     dataset = EmbeddingDataset(E, device = args.device)
-    sampler = EmbeddingBatchSampler(dataset, batch_size = 500)
+    sampler = EmbeddingBatchSampler(dataset, batch_size = args.batch_size)
     dataloader = DataLoader(dataset, batch_sampler = sampler)
     iterator = iter(dataloader)
 

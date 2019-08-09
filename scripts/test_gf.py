@@ -6,7 +6,7 @@ import numpy as np
 import networkx as nx
 import matplotlib as mpl
 from argparse import ArgumentParser
-from gf.models.graphflow import GF
+from gf.models.gf import GF
 from gf.models.ep import EdgePredictor
 from gf.utils import *
 from tqdm import tqdm
@@ -136,5 +136,5 @@ if __name__ == "__main__":
     plot_sample_graphs(A[:4])
     plot_prior_histograms(model, E)
     show_embeddings_and_samples(model, edge_predictor, E[:4], mu, sigma)
-    E = list(filter(lambda e: len(e) == 10, E))
+    E = list(filter(lambda e: len(e) == 16, E))
     interpolate(model, edge_predictor, E[0], E[1], E[2], E[3], mu, sigma)

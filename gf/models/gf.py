@@ -289,7 +289,7 @@ class GF(nn.Module):
         self.n_nodes_log_sigma = nn.Parameter(torch.zeros(1, device = device))
 
     def sample_prior(self, n_batch):
-        n_nodes = 15
+        n_nodes = 100
         prior = Normal(loc = torch.zeros(n_nodes * self.embedding_dim, 
                                          device = self.device),
                        scale = torch.ones(n_nodes * self.embedding_dim, 
@@ -309,9 +309,9 @@ class GF(nn.Module):
             X, LD = flow.forward(X)
             log_det += LD
             prior = Normal(loc = torch.zeros(n_nodes * self.embedding_dim, 
-                                         device = self.device),
-                       scale = torch.ones(n_nodes * self.embedding_dim, 
-                                          device = self.device))
+                                             device = self.device),
+                           scale = torch.ones(n_nodes * self.embedding_dim, 
+                                              device = self.device))
         Z, prior_logprob = X, prior.log_prob(X.view(batch_size, -1))
         prior_logprob = torch.sum(prior_logprob, dim = 1)
         return Z, (prior_logprob + log_det) / n_nodes
