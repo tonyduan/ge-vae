@@ -9,6 +9,7 @@ import torch.nn.init as init
 from torch.distributions import Normal, MultivariateNormal, Distribution
 from gf.modules.attn import ISAB, PMA, MAB, SAB
 from gf.modules.splines import unconstrained_RQS
+from gf.models.ep import EdgePredictor
 
 
 class ActNorm(nn.Module):
@@ -282,14 +283,17 @@ class GF(nn.Module):
     def __init__(self, embedding_dim, num_flows, device):
         super().__init__()
         self.embedding_dim = embedding_dim
-        self.flows = nn.ModuleList([GFLayerNSF(embedding_dim, device) \
-                                    for _ in range(num_flows)])
+        self.flows_L = nn.ModuleList([GFLayerNSF(embedding_dim, device) \
+                                      for _ in range(num_flows)])
+        self.flows_Z = nn.ModuleList([GFLayerNSF(embedding_dim, device) \
+                                      for _ in range(num_flows)])
         self.device = device
         self.n_nodes_mu = nn.Parameter(torch.zeros(1, device = device))
         self.n_nodes_log_sigma = nn.Parameter(torch.zeros(1, device = device))
+        self.ep = EdgePredictor(embedding_dim, device)
 
     def sample_prior(self, n_batch):
-        n_nodes = 100
+        n_nodes = 15
         prior = Normal(loc = torch.zeros(n_nodes * self.embedding_dim, 
                                          device = self.device),
                        scale = torch.ones(n_nodes * self.embedding_dim, 
@@ -298,27 +302,37 @@ class GF(nn.Module):
         Z = Z.reshape((n_batch, n_nodes, self.embedding_dim))
         return Z
 
-    def forward(self, X):
+    def forward(self, X, A):
         """
         Returns:
             log probability per node
         """
         batch_size, n_nodes = X.shape[0], X.shape[1]
         log_det = torch.zeros(batch_size, device=self.device)
-        for flow in self.flows:
+        for flow in self.flows_L:
             X, LD = flow.forward(X)
             log_det += LD
-            prior = Normal(loc = torch.zeros(n_nodes * self.embedding_dim, 
-                                             device = self.device),
-                           scale = torch.ones(n_nodes * self.embedding_dim, 
-                                              device = self.device))
+        ep_loss = self.ep.loss(X, A)
+        for flow in self.flows_Z:
+            X, LD = flow.forward(X)
+            log_det += LD
+        prior = Normal(loc = torch.zeros(n_nodes * self.embedding_dim, 
+                                         device = self.device),
+                       scale = torch.ones(n_nodes * self.embedding_dim, 
+                                          device = self.device))
         Z, prior_logprob = X, prior.log_prob(X.view(batch_size, -1))
         prior_logprob = torch.sum(prior_logprob, dim = 1)
-        return Z, (prior_logprob + log_det) / n_nodes
+        return Z, (prior_logprob + log_det) / n_nodes - ep_loss
+
+    def predict_A_from_E(self, X):
+        batch_size, n_nodes = X.shape[0], X.shape[1]
+        for flow in self.flows_L:
+            X,  _ = flow.forward(X)
+        return self.ep.forward(X)
 
     def backward(self, Z):
         B, N, _ = Z.shape
-        for flow in self.flows[::-1]:
+        for flow in self.flows_Z[::-1]:
             Z, _ = flow.backward(Z)
         return Z
 

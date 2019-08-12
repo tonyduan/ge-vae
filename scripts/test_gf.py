@@ -25,10 +25,10 @@ def plot_sample_graphs(A):
     plt.savefig("./ckpts/img/sample.png")
 
 
-def plot_prior_histograms(model, E):
+def plot_prior_histograms(model, E, A):
     Z = []
-    for e in tqdm(E):
-        z, _ = model.forward(torch.tensor([e], dtype=torch.float))
+    for i in tqdm(range(len(E))):
+        z, _ = model.forward(torch.tensor([E[i]], dtype = torch.float), torch.tensor([A[i]], dtype=torch.float))
         Z.append(z[0].data.numpy())
     Z = np.vstack(Z)
     plt.figure(figsize=(8, 6))
@@ -71,7 +71,7 @@ def interpolate(model, edgepredictor, x1, x2, x3, x4, mu, sigma):
     plt.savefig("./ckpts/img/interpolate.png")
 
 
-def show_embeddings_and_samples(model, edgepredictor, E, mu, sigma):
+def show_embeddings_and_samples(model, E, A, mu, sigma):
     plt.figure(figsize=(10, 12))
     for i in range(4):
 
@@ -80,7 +80,8 @@ def show_embeddings_and_samples(model, edgepredictor, E, mu, sigma):
         plt.title("Truth")
 
         E_std = (E[i] - mu) / sigma
-        Z = model.forward(torch.tensor([E_std], dtype=torch.float))[0][0]
+        Z = model.forward(torch.tensor([E_std], dtype=torch.float), 
+                          torch.tensor([A[i]], dtype=torch.float))[0][0]
 
         plt.subplot(4, 4, i + 5)
         plt.imshow(Z.data.numpy(), cmap = "inferno")
@@ -88,20 +89,19 @@ def show_embeddings_and_samples(model, edgepredictor, E, mu, sigma):
 
         Z_sampled = model.sample_prior(1)
         E_sampled = model.backward(Z_sampled)[0].data.numpy()
-        E_sampled = E_sampled * sigma + mu
 
         plt.subplot(4, 4, i + 9)
         plt.imshow(E_sampled, vmin = -0.8, vmax = 0.8)
         plt.title("Generated")
 
-        idxs, X = convert_embeddings_pairwise([E_sampled])
+        A_hat = model.ep.forward(torch.tensor([E_sampled], dtype=torch.float))[0].data.numpy()
+        A_sample = (np.random.rand(*A_hat.shape) < A_hat).astype(int)
+
         #idxs, X = convert_embeddings_pairwise([E[i]])
-        X = torch.tensor(X, dtype=torch.float)
-        Y_hat = torch.sigmoid(edge_predictor.forward(X))
-        A_hat = reconstruct_adjacency_matrix(X.shape[1], idxs, Y_hat)
+        #X = torch.tensor(X, dtype=torch.float)
+        #Y_hat = torch.sigmoid(edge_predictor.forward(X))
 
         plt.subplot(4, 4, i + 13)
-        A_sample = (np.random.rand(*A_hat.shape) < A_hat).astype(int)
         nx.draw(nx.from_numpy_array(A_sample), node_color = "black",
                 node_size = 20)
         plt.title("Generated")
@@ -109,6 +109,19 @@ def show_embeddings_and_samples(model, edgepredictor, E, mu, sigma):
     plt.tight_layout()
     plt.show()
     plt.savefig("./ckpts/img/gf.png")
+
+
+def plot_ep_samples(model, E):
+    plt.figure(figsize=(8, 3))
+    for i in range(len(E)):
+        e = torch.tensor([E[i]], dtype = torch.float)
+        A_hat = model.predict_A_from_E(e).data.numpy()[0]
+        A_sample = (np.random.rand(*A_hat.shape) < A_hat).astype(int)
+        plt.subplot(4, 2, i + 1)
+        nx.draw(nx.from_numpy_array(A_sample), node_color = "black",
+                node_size = 20)
+    plt.tight_layout()
+    plt.savefig("./ckpts/img/ep.png")
 
 
 if __name__ == "__main__":
@@ -124,8 +137,8 @@ if __name__ == "__main__":
     E = [e[:, :args.K] for e in E]
 
     # == load the relevant models
-    edge_predictor = EdgePredictor(args.K)
-    edge_predictor.load_state_dict(torch.load("./ckpts/ep/weights.torch"))
+    #edge_predictor = EdgePredictor(args.K)
+    #edge_predictor.load_state_dict(torch.load("./ckpts/ep/weights.torch"))
 
     model = GF(embedding_dim = args.K, num_flows = 2, device = "cpu")
     model.load_state_dict(torch.load("./ckpts/gf/weights.torch"))
@@ -134,7 +147,9 @@ if __name__ == "__main__":
 
     # == create the figures
     plot_sample_graphs(A[:4])
-    plot_prior_histograms(model, E)
-    show_embeddings_and_samples(model, edge_predictor, E[:4], mu, sigma)
-    E = list(filter(lambda e: len(e) == 16, E))
-    interpolate(model, edge_predictor, E[0], E[1], E[2], E[3], mu, sigma)
+    plot_prior_histograms(model, E, A)
+    show_embeddings_and_samples(model, E[:4], A[:4], mu, sigma)
+    plot_ep_samples(model, E[:8])
+    #E = list(filter(lambda e: len(e) == 16, E))
+    #interpolate(model, edge_predictor, E[0], E[1], E[2], E[3], mu, sigma)
+

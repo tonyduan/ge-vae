@@ -15,7 +15,7 @@ if __name__ == "__main__":
     argparser.add_argument("--K", default=4, type=int)
     argparser.add_argument("--dataset", default="community")
     argparser.add_argument("--lr", default=0.01, type=float)
-    argparser.add_argument("--iterations", default=1000, type=int)
+    argparser.add_argument("--iterations", default=4000, type=int)
     argparser.add_argument("--batch-size", default=2000, type=int)
     argparser.add_argument("--device", default="cuda:0")
     argparser.add_argument("--noise", default=0.01, type=float)
@@ -37,12 +37,12 @@ if __name__ == "__main__":
     E, A = zip(*sorted(zip(E, A), key = lambda t: len(t[0])))
 
     #_, X, Y = convert_embeddings_pairwise(E, A)
-    edge_data = EdgeDataset(E, A)
+    edge_data = EdgeDataset(E, A, device = "cpu")
     sampler = CustomBatchSampler(edge_data, batch_size = args.batch_size)
     dataloader = DataLoader(edge_data, batch_sampler = sampler)
     iterator = iter(dataloader)
 
-    edge_predictor = EdgePredictor(args.K)
+    edge_predictor = EdgePredictor(args.K, device = args.device)
     optimizer = optim.Adam(edge_predictor.parameters(), lr = args.lr)
     epoch_no = 1
 

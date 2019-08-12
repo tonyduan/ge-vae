@@ -57,14 +57,15 @@ class EmbeddingBatchSampler(Sampler):
 
 class EdgeDataset(Dataset):
     
-    def __init__(self, X, Y):
+    def __init__(self, X, Y, device):
         assert len(X) == len(Y)
         self.X = X
         self.Y = Y
+        self.device = device
 
     def __getitem__(self, index):
-        return torch.tensor(self.X[index], dtype = torch.float), \
-               torch.tensor(self.Y[index], dtype = torch.float)
+        return torch.tensor(self.X[index], dtype = torch.float, device = self.device), \
+               torch.tensor(self.Y[index], dtype = torch.float, device = self.device)
 
     def __len__(self):
         return len(self.X)

@@ -6,7 +6,7 @@ import torch.nn.init as init
 
 class MAB(nn.Module):
 
-    def __init__(self, dim_Q, dim_K, dim_V, num_heads=6):
+    def __init__(self, dim_Q, dim_K, dim_V, num_heads = 6, device = "cpu"):
         super().__init__()
         self.dim_Q = dim_Q
         self.dim_K = dim_K
@@ -16,6 +16,7 @@ class MAB(nn.Module):
         self.fc_K = nn.Linear(dim_K, dim_V)
         self.fc_V = nn.Linear(dim_K, dim_V)
         self.fc_O = nn.Linear(dim_V, dim_V)
+        self.device = device
 
     def forward(self, Q, V):
         B, _, _ = Q.shape
@@ -42,11 +43,11 @@ class SAB(nn.Module):
 
 class ISAB(nn.Module):
 
-    def __init__(self, dim_in, dim_out, num_heads, num_inds):
+    def __init__(self, dim_in, dim_out, num_heads, num_inds, device = "cpu"):
         super().__init__()
-        self.I = nn.Parameter(torch.Tensor(1, num_inds, dim_out))
-        self.mab0 = MAB(dim_out, dim_in, dim_out, num_heads)
-        self.mab1 = MAB(dim_in, dim_out, dim_out, num_heads)
+        self.I = nn.Parameter(torch.Tensor(1, num_inds, dim_out).to(device))
+        self.mab0 = MAB(dim_out, dim_in, dim_out, num_heads, device = device)
+        self.mab1 = MAB(dim_in, dim_out, dim_out, num_heads, device = device)
         init.xavier_uniform_(self.I)
 
     def forward(self, X):

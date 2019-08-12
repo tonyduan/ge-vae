@@ -11,7 +11,7 @@ from matplotlib import pyplot as plt
 from torch.utils.data.dataloader import DataLoader
 from gf.models.gf import GF
 from gf.utils import *
-from gf.datasets import EmbeddingDataset, EmbeddingBatchSampler
+from gf.datasets import *
 from tqdm import tqdm
 mpl.use("agg")
 
@@ -22,11 +22,12 @@ if __name__ == "__main__":
     argparser.add_argument("--dataset", default="community")
     argparser.add_argument("--K", default=4, type=int)
     argparser.add_argument("--lr", default=1e-4, type=float)
-    argparser.add_argument("--iterations", default=2000, type=int)
+    argparser.add_argument("--iterations", default=1000, type=int)
     argparser.add_argument("--device", default="cuda:0")
     argparser.add_argument("--batch-size", default=2000, type=int)
     argparser.add_argument("--noise", default=0.025, type=float)
     argparser.add_argument("--load", action="store_true")
+    argparser.add_argument("--ep-only", action="store_true")
     args = argparser.parse_args()
 
     logging.basicConfig(level=logging.DEBUG)
@@ -44,10 +45,10 @@ if __name__ == "__main__":
     np.save("./ckpts/gf/mu.npy", mu)
     np.save("./ckpts/gf/sigma.npy", sigma)
     E = [(e - mu) / sigma for e in E]
-    E = list(sorted(E, key = lambda e: len(e)))
+    E, A = zip(*sorted(zip(E, A), key = lambda t: len(t[0])))
 
-    dataset = EmbeddingDataset(E, device = args.device)
-    sampler = EmbeddingBatchSampler(dataset, batch_size = args.batch_size)
+    dataset = EdgeDataset(E, A, device = args.device)
+    sampler = CustomBatchSampler(dataset, batch_size = args.batch_size)
     dataloader = DataLoader(dataset, batch_sampler = sampler)
     iterator = iter(dataloader)
 
@@ -57,7 +58,10 @@ if __name__ == "__main__":
         model.load_state_dict(torch.load("./ckpts/gf/weights.torch"))
 
     model = model.to(args.device)
-    optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay = 1e-5)
+    if args.ep_only:
+        optimizer = optim.Adam(model.ep.parameters(), lr=args.lr, weight_decay = 1e-5)
+    else:
+        optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay = 1e-5)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor = 0.5)
 
     losses = np.zeros(args.iterations)
@@ -65,11 +69,11 @@ if __name__ == "__main__":
     for i in range(args.iterations):
         optimizer.zero_grad()
         try:
-            E_batch = next(iterator)
+            E_batch, A_batch = next(iterator)
         except StopIteration:
             iterator = iter(dataloader)
-            E_batch = next(iterator)
-        Z, logprob = model.forward(E_batch)
+            E_batch, A_batch = next(iterator)
+        Z, logprob = model.forward(E_batch, A_batch)
         loss = -torch.mean(logprob)
         loss.backward()
         losses[i] = loss.cpu().data.numpy()
