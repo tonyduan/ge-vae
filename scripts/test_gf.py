@@ -25,10 +25,12 @@ def plot_sample_graphs(A):
     plt.savefig("./ckpts/img/sample.png")
 
 
-def plot_prior_histograms(model, E, A):
+def plot_prior_histograms(model, E, A, V):
     Z = []
     for i in tqdm(range(len(E))):
-        z, _ = model.forward(torch.tensor([E[i]], dtype = torch.float), torch.tensor([A[i]], dtype=torch.float))
+        z, _ = model.forward(torch.tensor([E[i]], dtype = torch.float), 
+                             torch.tensor([A[i]], dtype = torch.float),
+                             torch.tensor([V[i]], dtype = torch.float))
         Z.append(z[0].data.numpy())
     Z = np.vstack(Z)
     plt.figure(figsize=(8, 6))
@@ -38,7 +40,7 @@ def plot_prior_histograms(model, E, A):
     plt.tight_layout()
     plt.savefig("./ckpts/img/hists.png")
 
-def interpolate(model, edgepredictor, x1, x2, x3, x4, mu, sigma):
+def interpolate(model, x1, x2, x3, x4, mu, sigma):
     n_nodes = x1.shape[0]
     x1 = torch.tensor([(x1 - mu) / sigma], dtype = torch.float)
     x2 = torch.tensor([(x2 - mu) / sigma], dtype = torch.float)
@@ -71,7 +73,7 @@ def interpolate(model, edgepredictor, x1, x2, x3, x4, mu, sigma):
     plt.savefig("./ckpts/img/interpolate.png")
 
 
-def show_embeddings_and_samples(model, E, A, mu, sigma):
+def show_embeddings_and_samples(model, E, A, V, mu, sigma):
     plt.figure(figsize=(10, 12))
     for i in range(4):
 
@@ -80,26 +82,25 @@ def show_embeddings_and_samples(model, E, A, mu, sigma):
         plt.title("Truth")
 
         E_std = (E[i] - mu) / sigma
-        Z = model.forward(torch.tensor([E_std], dtype=torch.float), 
-                          torch.tensor([A[i]], dtype=torch.float))[0][0]
+        Z = model.forward(torch.tensor([E_std], dtype = torch.float), 
+                          torch.tensor([A[i]], dtype = torch.float),
+                          torch.tensor([V[i]], dtype = torch.float))[0][0]
 
         plt.subplot(4, 4, i + 5)
         plt.imshow(Z.data.numpy(), cmap = "inferno")
         plt.title("Corresponding prior")
 
-        Z_sampled = model.sample_prior(1)
-        E_sampled = model.backward(Z_sampled)[0].data.numpy()
+        Z_sampled, V_sampled = model.sample_prior(1)
+        E_sampled = model.backward(Z_sampled, V_sampled)[0].data.numpy()
 
         plt.subplot(4, 4, i + 9)
         plt.imshow(E_sampled, vmin = -0.8, vmax = 0.8)
         plt.title("Generated")
 
-        A_hat = model.ep.forward(torch.tensor([E_sampled], dtype=torch.float))[0].data.numpy()
-        A_sample = (np.random.rand(*A_hat.shape) < A_hat).astype(int)
-
-        #idxs, X = convert_embeddings_pairwise([E[i]])
-        #X = torch.tensor(X, dtype=torch.float)
-        #Y_hat = torch.sigmoid(edge_predictor.forward(X))
+        A_hat = torch.sigmoid(model.ep.forward(torch.tensor([E_sampled], dtype=torch.float),
+                                               torch.tensor([V_sampled], dtype=torch.float)))[0].data.numpy()
+        #A_sample = (np.random.rand(*A_hat.shape) < A_hat).astype(int)
+        A_sample = np.round(A_hat)
 
         plt.subplot(4, 4, i + 13)
         nx.draw(nx.from_numpy_array(A_sample), node_color = "black",
@@ -111,13 +112,15 @@ def show_embeddings_and_samples(model, E, A, mu, sigma):
     plt.savefig("./ckpts/img/gf.png")
 
 
-def plot_ep_samples(model, E):
+def plot_ep_samples(model, E, V):
     plt.figure(figsize=(8, 3))
     for i in range(len(E)):
         e = torch.tensor([E[i]], dtype = torch.float)
-        A_hat = model.predict_A_from_E(e).data.numpy()[0]
-        A_sample = (np.random.rand(*A_hat.shape) < A_hat).astype(int)
-        plt.subplot(4, 2, i + 1)
+        v = torch.tensor([V[i]], dtype = torch.float)
+        A_hat = model.predict_A_from_E(e, v).data.numpy()[0]
+        #A_sample = (np.random.rand(*A_hat.shape) < A_hat).astype(int)
+        A_sample = np.round(A_hat)
+        plt.subplot(2, 4, i + 1)
         nx.draw(nx.from_numpy_array(A_sample), node_color = "black",
                 node_size = 20)
     plt.tight_layout()
@@ -147,9 +150,10 @@ if __name__ == "__main__":
 
     # == create the figures
     plot_sample_graphs(A[:4])
-    plot_prior_histograms(model, E, A)
-    show_embeddings_and_samples(model, E[:4], A[:4], mu, sigma)
-    plot_ep_samples(model, E[:8])
+    plot_prior_histograms(model, E, A, V)
+    show_embeddings_and_samples(model, E[:4], A[:4], V[:4], mu, sigma)
+    idx = np.random.choice(len(E) - 8)
+    plot_ep_samples(model, E[idx:idx + 8], V[idx:idx+8])
     #E = list(filter(lambda e: len(e) == 16, E))
     #interpolate(model, edge_predictor, E[0], E[1], E[2], E[3], mu, sigma)
 

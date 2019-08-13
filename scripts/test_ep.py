@@ -37,7 +37,8 @@ if __name__ == "__main__":
         #A_hat = reconstruct_adjacency_matrix(X.shape[1], idxs, Y_hat)
         e = torch.tensor([E[i]], dtype = torch.float)
         A_hat = torch.sigmoid(edge_predictor.forward(e))[0].data.numpy()
-        A_sample = (np.random.rand(*A_hat.shape) < A_hat).astype(int)
+        #A_sample = (np.random.rand(*A_hat.shape) < A_hat).astype(int)
+        A_sample = np.round(A_hat)
         plt.subplot(4, 2, i + 1)
         nx.draw(nx.from_numpy_array(A_sample), node_color = "black",
                 node_size = 20)

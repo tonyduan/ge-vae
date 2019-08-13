@@ -2,8 +2,52 @@
 This file contains utility functions for working with graphs.
 """
 import numpy as np
+import torch
 import itertools
 from tqdm import tqdm
+
+
+def construct_embedding_mask(E, V):
+    """
+    Construct a mask for a batch of embeddings given node sizes.
+
+    Parameters
+    ----------
+    E: (batch_size) x (n_nodes) x (n_features) set of embeddings (tensor)
+
+    V: (batch_size) actual number of nodes per set (tensor)
+
+    Returns
+    -------
+    mask: (batch_size) x (n_nodes) binary mask (tensor)
+    """
+    batch_size, max_n_nodes, _ = E.shape
+    mask = torch.zeros(batch_size, max_n_nodes, device = str(E.device))
+    for i, cnt in enumerate(V):
+        mask[i, :cnt.int()] = 1
+    return mask
+
+
+def construct_adjacency_mask(E, V):
+    """
+    Construct a mask for a batch of adjacency matrices given node sizes.
+
+    Parameters
+    ----------
+    E: (batch_size) x (n_nodes) x (n_features) set of embeddings (tensor)
+
+    V: (batch_size) actual number of nodes per set (tensor)
+
+    Returns
+    -------
+    mask: (batch_size) x (n_nodes) binary mask (tensor)
+    """
+    batch_size, max_n_nodes, _ = E.shape
+    mask = torch.zeros(batch_size, max_n_nodes, max_n_nodes, 
+                       device = str(E.device))
+    for i, cnt in enumerate(V):
+        mask[i, :cnt.int(), :cnt.int()] = 1
+    return mask
 
 
 def convert_embeddings_pairwise(E, A=None):

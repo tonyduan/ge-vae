@@ -18,14 +18,19 @@ class MAB(nn.Module):
         self.fc_O = nn.Linear(dim_V, dim_V)
         self.device = device
 
-    def forward(self, Q, V):
+    def forward(self, Q, V, mask = None):
         B, _, _ = Q.shape
         Q, K, V = self.fc_Q(Q), self.fc_K(V), self.fc_V(V)
         dim_split = self.dim_V // self.num_heads
         Q_ = torch.cat(Q.split(dim_split, dim=2), dim=0)
         K_ = torch.cat(K.split(dim_split, dim=2), dim=0)
         V_ = torch.cat(V.split(dim_split, dim=2), dim=0)
-        A = torch.softmax(Q_ @ K_.transpose(1, 2) / self.dim_V ** 0.5, dim=2)
+        A_logits = (Q_ @ K_.transpose(1,2)) / math.sqrt(Q.shape[-1])
+        if mask is not None:
+            mask = mask.unsqueeze(1)
+            mask = mask.repeat(self.num_heads, Q.shape[1], 1)
+            A_logits.masked_fill_(mask, -100.0)
+        A = torch.softmax(A_logits, -1)
         O = torch.cat((Q_ + A @ V_).split(B,), dim=2)
         O = O + torch.relu(self.fc_O(O))
         return O
@@ -50,9 +55,24 @@ class ISAB(nn.Module):
         self.mab1 = MAB(dim_in, dim_out, dim_out, num_heads, device = device)
         init.xavier_uniform_(self.I)
 
-    def forward(self, X):
-        H = self.mab0(self.I.repeat(X.shape[0], 1, 1), X)
+    def forward(self, X, mask = None):
+        H = self.mab0(self.I.repeat(X.shape[0], 1, 1), X, mask)
         return self.mab1(X, H)
+
+
+class ISABStack(nn.Module):
+    
+    def __init__(self, stack_size, dim_in, dim_out, num_heads, num_inds, device = "cpu"):
+        super().__init__()
+        self.isabs = nn.ModuleList(
+            [ISAB(dim_in, dim_out, 1, num_inds, device)] + 
+            [ISAB(dim_out, dim_out, num_heads, num_inds, device) \
+             for _ in range(stack_size - 1)])
+
+    def forward(self, X, mask = None):
+        for isab in self.isabs:
+            X = isab(X, mask)
+        return X
 
 
 class PMA(nn.Module):
@@ -65,3 +85,4 @@ class PMA(nn.Module):
 
     def forward(self, X):
         return self.mab(self.S.repeat(X.size(0), 1, 1), X)
+

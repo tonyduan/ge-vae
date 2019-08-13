@@ -47,9 +47,13 @@ if __name__ == "__main__":
     E = [(e - mu) / sigma for e in E]
     E, A = zip(*sorted(zip(E, A), key = lambda t: len(t[0])))
 
-    dataset = EdgeDataset(E, A, device = args.device)
-    sampler = CustomBatchSampler(dataset, batch_size = args.batch_size)
-    dataloader = DataLoader(dataset, batch_sampler = sampler)
+    #dataset = EdgeDataset(E, A, device = args.device)
+    #sampler = CustomBatchSampler(dataset, batch_size = args.batch_size)
+    #dataloader = DataLoader(dataset, batch_sampler = sampler)
+
+    dataset = GraphDataset(E, A, device = args.device)
+    dataloader = DataLoader(dataset, batch_size = 256, shuffle = True,
+                            collate_fn = custom_collate_fn)
     iterator = iter(dataloader)
 
     model = GF(embedding_dim = args.K, num_flows = 2, device = args.device)
@@ -65,15 +69,17 @@ if __name__ == "__main__":
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor = 0.5)
 
     losses = np.zeros(args.iterations)
+    epoch_no = 1
 
     for i in range(args.iterations):
         optimizer.zero_grad()
         try:
-            E_batch, A_batch = next(iterator)
+            L_batch, A_batch, V_batch = next(iterator)
         except StopIteration:
             iterator = iter(dataloader)
-            E_batch, A_batch = next(iterator)
-        Z, logprob = model.forward(E_batch, A_batch)
+            L_batch, A_batch, V_batch = next(iterator)
+            epoch_no += 1
+        Z, logprob = model.forward(L_batch, A_batch, V_batch)
         loss = -torch.mean(logprob)
         loss.backward()
         losses[i] = loss.cpu().data.numpy()
@@ -82,7 +88,9 @@ if __name__ == "__main__":
         if i % 1 == 0:
             logger.info(f"Iter: {i}\t" +
                         f"Logprob: {-loss.data:.2f}\t" + 
-                        f"Batch size: {len(E_batch)}")
+                        f"Epoch: {epoch_no}\t" + 
+                        f"Batch size: {len(V_batch)}\t" +
+                        f"Max nodes: {len(L_batch[0])}")
 
     model = model.cpu()
     torch.save(model.state_dict(), "./ckpts/gf/weights.torch")
