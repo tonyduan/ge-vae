@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as init
-from torch.distributions import Normal, MultivariateNormal, Distribution, Poisson
+from torch.distributions import Normal, MultivariateNormal, Distribution, Poisson, Bernoulli
 from gf.modules.attn import ISAB, PMA, MAB, SAB
 from gf.modules.splines import unconstrained_RQS
 from gf.models.ep import EdgePredictor
@@ -16,7 +16,6 @@ from gf.utils import *
 class ActNorm(nn.Module):
     """
     ActNorm layer.
-    [Kingma and Dhariwal, 2018.]
     """
     def __init__(self, dim, device):
         super().__init__()
@@ -103,7 +102,7 @@ class GFLayerNSF(nn.Module):
 
     def forward(self, x, v):
         batch_size, max_n_nodes = x.shape[0], x.shape[1]
-        mask = construct_embedding_mask(x, v)
+        mask = construct_embedding_mask(v)
         x, log_det = self.actnorm(x, v)
         x, ld = self.conv(x, v)
         log_det += ld
@@ -131,7 +130,7 @@ class GFLayerNSF(nn.Module):
 
     def backward(self, z, v):
         batch_size, max_n_nodes = z.shape[0], z.shape[1]
-        mask = construct_embedding_mask(z, v)
+        mask = construct_embedding_mask(v)
         log_det = torch.zeros_like(z)
         lower = z[:, :, :self.embedding_dim // 2]
         upper = z[:, :, self.embedding_dim // 2:]
@@ -172,8 +171,7 @@ class GF(nn.Module):
         self.final_actnorm = ActNorm(embedding_dim, device)
 
     def sample_prior(self, n_batch):
-        #n_nodes = Poisson(self.n_nodes_lambda).sample((1,)).squeeze().squeeze()
-        n_nodes = 15
+        n_nodes = 20
         prior = Normal(loc = torch.zeros(n_nodes * self.embedding_dim, 
                                          device = self.device),
                        scale = torch.ones(n_nodes * self.embedding_dim, 
@@ -183,40 +181,38 @@ class GF(nn.Module):
         V = torch.ones(n_batch) * n_nodes
         return Z, V
 
-    def forward(self, X, A, V):
+    def forward(self, x, a, v):
         """
-        Returns:
+        Returns
+        -------
             log probability per node
         """
-        batch_size, max_n_nodes = X.shape[0], X.shape[1]
+        batch_size, max_n_nodes = x.shape[0], x.shape[1]
         log_det = torch.zeros(batch_size, device=self.device)
         for flow in self.flows_L:
-            X, LD = flow.forward(X, V)
+            x, LD = flow.forward(x, v)
             log_det += LD
-        ep_loss = self.ep.loss(X, A, V)
+        ep_logprob = self.ep.log_prob_per_edge(x, a, v)
         for flow in self.flows_Z:
-            X, LD = flow.forward(X, V)
+            x, LD = flow.forward(x, v)
             log_det += LD
-        X, LD = self.final_actnorm(X, V)
+        x, LD = self.final_actnorm(x, v)
         log_det += LD
         prior = Normal(loc = torch.zeros(max_n_nodes * self.embedding_dim, 
                                          device = self.device),
                        scale = torch.ones(max_n_nodes * self.embedding_dim, 
                                           device = self.device))
-        Z, prior_logprob = X, prior.log_prob(X.view(batch_size, -1))
+        Z, prior_logprob = x, prior.log_prob(x.view(batch_size, -1))
         prior_logprob = prior_logprob.reshape((batch_size, max_n_nodes, -1))
-        mask = torch.zeros(batch_size, max_n_nodes, device = self.device)
-        for i, cnt in enumerate(V):
-            mask[i, :cnt.int()] = 1
+        mask = construct_embedding_mask(v)
         prior_logprob = torch.sum(prior_logprob * mask.unsqueeze(2), dim = (1, 2))
-        #self.n_nodes_lambda = torch.mean(V)
-        return Z, (prior_logprob + log_det) / V - ep_loss 
+        return Z, (prior_logprob + log_det) / v / self.embedding_dim, ep_logprob 
 
     def predict_A_from_E(self, X, V):
         batch_size, n_nodes = X.shape[0], X.shape[1]
         for flow in self.flows_L:
             X,  _ = flow.forward(X, V)
-        return torch.sigmoid(self.ep.forward(X, V))
+        return Bernoulli(logits = self.ep.forward(X, V)).probs
 
     def backward(self, Z, V):
         B, N, _ = Z.shape

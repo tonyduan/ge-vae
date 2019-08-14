@@ -12,10 +12,10 @@ class MAB(nn.Module):
         self.dim_K = dim_K
         self.dim_V = dim_V
         self.num_heads = num_heads
-        self.fc_Q = nn.Linear(dim_Q, dim_V)
-        self.fc_K = nn.Linear(dim_K, dim_V)
-        self.fc_V = nn.Linear(dim_K, dim_V)
-        self.fc_O = nn.Linear(dim_V, dim_V)
+        self.fc_Q = nn.Linear(dim_Q, dim_V).to(device)
+        self.fc_K = nn.Linear(dim_K, dim_V).to(device)
+        self.fc_V = nn.Linear(dim_K, dim_V).to(device)
+        self.fc_O = nn.Linear(dim_V, dim_V).to(device)
         self.device = device
 
     def forward(self, Q, V, mask = None):
@@ -42,8 +42,8 @@ class SAB(nn.Module):
         super().__init__()
         self.mab = MAB(dim_in, dim_in, dim_out, num_heads)
 
-    def forward(self, X):
-        return self.mab(X, X)
+    def forward(self, X, mask = None):
+        return self.mab(X, X, mask)
 
 
 class ISAB(nn.Module):

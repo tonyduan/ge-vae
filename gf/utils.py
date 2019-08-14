@@ -7,44 +7,42 @@ import itertools
 from tqdm import tqdm
 
 
-def construct_embedding_mask(E, V):
+def construct_embedding_mask(V):
     """
     Construct a mask for a batch of embeddings given node sizes.
 
     Parameters
     ----------
-    E: (batch_size) x (n_nodes) x (n_features) set of embeddings (tensor)
-
     V: (batch_size) actual number of nodes per set (tensor)
 
     Returns
     -------
     mask: (batch_size) x (n_nodes) binary mask (tensor)
     """
-    batch_size, max_n_nodes, _ = E.shape
-    mask = torch.zeros(batch_size, max_n_nodes, device = str(E.device))
+    batch_size = len(V)
+    max_n_nodes = torch.max(V).int()
+    mask = torch.zeros(batch_size, max_n_nodes, device = str(V.device))
     for i, cnt in enumerate(V):
         mask[i, :cnt.int()] = 1
     return mask
 
 
-def construct_adjacency_mask(E, V):
+def construct_adjacency_mask(V):
     """
     Construct a mask for a batch of adjacency matrices given node sizes.
 
     Parameters
     ----------
-    E: (batch_size) x (n_nodes) x (n_features) set of embeddings (tensor)
-
     V: (batch_size) actual number of nodes per set (tensor)
 
     Returns
     -------
     mask: (batch_size) x (n_nodes) binary mask (tensor)
     """
-    batch_size, max_n_nodes, _ = E.shape
+    batch_size = len(V)
+    max_n_nodes = torch.max(V).int()
     mask = torch.zeros(batch_size, max_n_nodes, max_n_nodes, 
-                       device = str(E.device))
+                       device = str(V.device))
     for i, cnt in enumerate(V):
         mask[i, :cnt.int(), :cnt.int()] = 1
     return mask
@@ -129,9 +127,10 @@ def compute_fgsd_embeddings(A, eps=1e-2):
         V[:,0] = -V[:,0]
     if np.std(V[:,0] > 0):
         breakpoint()
-    W[W < eps] = 1 / len(A) # scales with number of nodes
+    W[W < eps] = 1 / len(A) 
     W[W > eps] = 1 / W[W > eps]
     E = V @ np.diag(np.sqrt(W))
+    E = np.c_[D, np.ones_like(D) * len(A), E]
     return np.real(E)
 
 

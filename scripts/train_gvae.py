@@ -9,42 +9,6 @@ from matplotlib import pyplot as plt
 from gf.models.gvae import GVAE
 
 
-def gen_graphs(sizes, p_intra=0.7, p_inter=0.01):
-    max_size = np.max(sizes)
-    X = np.zeros((len(sizes), max_size, 32))
-    A = np.zeros((len(sizes), max_size, max_size))
-    for idx, V in enumerate(sizes):
-        comms = [nx.gnp_random_graph(V // 2, p_intra),
-                 nx.gnp_random_graph((V + 1) // 2, p_intra)]
-        graph = nx.disjoint_union_all(comms)
-        graph = nx.to_numpy_array(graph)
-        block1 = np.arange(V // 2)
-        block2 = np.arange(V // 2, V)
-        remaining = list(itertools.product(block1, block2))
-        np.random.shuffle(remaining)
-        for (i, j) in remaining[:int(p_inter * V + 1)]:
-            graph[i,j] = 1
-            graph[j,i] = 1
-        P = np.eye(V)
-        np.random.shuffle(P)
-        graph = P.T @ graph @ P
-        graph = np.pad(graph, (0, max_size - V), "constant")
-        X[idx,:] = np.r_[0.5 * np.random.randn(V, 32),
-                         np.zeros((max_size - V, 32))]
-        A[idx] = graph
-    return X, A
-
-
-def plot_graphs(X, A):
-    plt.figure(figsize=(8, 3))
-    for idx in range(len(A)):
-        plt.subplot(1, len(A), idx + 1)
-        feature_norms = np.linalg.norm(X[idx], axis = 1)
-        graph = A[idx][(feature_norms > 0),:][:,(feature_norms > 0)]
-        G = nx.from_numpy_matrix(graph)
-        nx.draw(G, node_color = "black", node_size = 50)
-    plt.show()
-
 if __name__ == "__main__":
 
     argparser = ArgumentParser()
@@ -132,3 +96,4 @@ if __name__ == "__main__":
     plt.title("Sampled A [sample]")
     plt.show()
     plot_graphs(X, (np.random.rand(*probs.shape) < probs).astype(int))
+

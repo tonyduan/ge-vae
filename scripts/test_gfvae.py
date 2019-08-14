@@ -6,7 +6,7 @@ import numpy as np
 import networkx as nx
 import matplotlib as mpl
 from argparse import ArgumentParser
-from gf.models.gf import GF
+from gf.models.gfvae import GFVAE
 from gf.models.ep import EdgePredictor
 from gf.utils import *
 from tqdm import tqdm
@@ -107,13 +107,13 @@ def show_embeddings_and_samples(model, E, A, V, mu, sigma):
     plt.savefig("./ckpts/img/gf.png")
 
 
-def plot_ep_samples(model, E, V):
+def plot_ep_samples(model, E, A, V):
     plt.figure(figsize=(8, 3))
     for i in range(len(E)):
         e = torch.tensor([E[i]], dtype = torch.float)
         v = torch.tensor([V[i]], dtype = torch.float)
-        breakpoint()
-        A_hat = model.predict_A_from_E(e, v).data.numpy()[0]
+        a = torch.tensor([A[i]], dtype = torch.float)
+        A_hat = model.predict_A_from_E(e, a, v).data.numpy()[0]
         Z = np.random.rand(*A_hat.shape)
         A_sample = (np.tril(Z) + np.tril(Z, -1).T < A_hat).astype(int)
         plt.subplot(2, 4, i + 1)
@@ -135,18 +135,18 @@ if __name__ == "__main__":
     V = np.load(f"datasets/{args.dataset}/test_V.npy")
     E = [e[:, :args.K] for e in E]
 
-    model = GF(embedding_dim = args.K, num_flows = 2, device = "cpu")
-    model.load_state_dict(torch.load("./ckpts/gf/weights.torch"))
-    mu = np.load("./ckpts/gf/mu.npy")
-    sigma = np.load("./ckpts/gf/sigma.npy")
+    model = GFVAE(embedding_dim = args.K, num_mp_steps = 5, device = "cpu")
+    model.load_state_dict(torch.load("./ckpts/gfvae/weights.torch"))
+    mu = np.load("./ckpts/gfvae/mu.npy")
+    sigma = np.load("./ckpts/gfvae/sigma.npy")
     E = [(e - mu) / sigma for e in E]
 
     # == create the figures
     plot_sample_graphs(A[:4])
     #plot_prior_histograms(model, E, A, V)
-    show_embeddings_and_samples(model, E[:4], A[:4], V[:4], mu, sigma)
+    #show_embeddings_and_samples(model, E[:4], A[:4], V[:4], mu, sigma)
     idx = np.random.choice(len(E) - 8)
-    plot_ep_samples(model, E[idx:idx + 8], V[idx:idx+8])
+    plot_ep_samples(model, E[idx:idx + 8], A[idx:idx+8], V[idx:idx+8])
     #E = list(filter(lambda e: len(e) == 16, E))
     #interpolate(model, edge_predictor, E[0], E[1], E[2], E[3], mu, sigma)
 

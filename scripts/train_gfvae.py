@@ -9,7 +9,7 @@ import matplotlib as mpl
 from argparse import ArgumentParser
 from matplotlib import pyplot as plt
 from torch.utils.data.dataloader import DataLoader
-from gf.models.gf import GF
+from gf.models.gfvae import GFVAE
 from gf.utils import *
 from gf.datasets import *
 from tqdm import tqdm
@@ -42,8 +42,8 @@ if __name__ == "__main__":
 
     mu = np.mean(np.vstack(E), axis = 0)
     sigma = np.std(np.vstack(E), axis = 0)
-    np.save("./ckpts/gf/mu.npy", mu)
-    np.save("./ckpts/gf/sigma.npy", sigma)
+    np.save("./ckpts/gfvae/mu.npy", mu)
+    np.save("./ckpts/gfvae/sigma.npy", sigma)
     E = [(e - mu) / sigma for e in E]
     E, A = zip(*sorted(zip(E, A), key = lambda t: len(t[0])))
 
@@ -52,10 +52,10 @@ if __name__ == "__main__":
                             collate_fn = custom_collate_fn)
     iterator = iter(dataloader)
 
-    model = GF(embedding_dim = args.K, num_flows = 2, device = args.device)
+    model = GFVAE(embedding_dim = args.K, num_mp_steps = 5, device = args.device)
 
     if args.load:
-        model.load_state_dict(torch.load("./ckpts/gf/weights.torch"))
+        model.load_state_dict(torch.load("./ckpts/gfvae/weights.torch"))
 
     model = model.to(args.device)
     if args.ep_only:
@@ -83,19 +83,19 @@ if __name__ == "__main__":
         #scheduler.step(losses[i])
         if i % 1 == 0:
             logger.info(f"Iter: {i}\t" +
-                        f"Node LP: {node_lp.mean().data:.2f}\t" + 
+                        f"KL Div: {node_lp.mean().data:.2f}\t" + 
                         f"Edge LP: {edge_lp.mean().data:.2f}\t" + 
                         f"Epoch: {epoch_no}\t" + 
                         f"Batch size: {len(V_batch)}\t" +
                         f"Max nodes: {len(L_batch[0])}")
 
     model = model.cpu()
-    torch.save(model.state_dict(), "./ckpts/gf/weights.torch")
-    np.save("./ckpts/gf/loss_curve.npy", losses)
+    torch.save(model.state_dict(), "./ckpts/gfvae/weights.torch")
+    np.save("./ckpts/gfvae/loss_curve.npy", losses)
     
     plt.figure(figsize=(8, 5))
-    losses = np.load("./ckpts/gf/loss_curve.npy")
+    losses = np.load("./ckpts/gfvae/loss_curve.npy")
     plt.plot(np.arange(len(losses)) + 1, losses, color = "black", alpha = 0.5)
     plt.title("Training loss")
-    plt.savefig("./ckpts/gf/loss_curve.png")
+    plt.savefig("./ckpts/gfvae/loss_curve.png")
 

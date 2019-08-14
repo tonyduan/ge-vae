@@ -28,6 +28,7 @@ class AttnBlock(nn.Module):
         K_ = torch.cat(K.split(dim_split, dim=2), dim=0)
         V_ = torch.cat(V.split(dim_split, dim=2), dim=0)
         logits = (Q_ @ K_.transpose(1, 2) / self.dim_V ** 0.5) + (1 - A) * -10 ** 10
+        O = F.softmax(logits)
         O = torch.cat(O.split(B,), dim=2)
         return O
 
@@ -65,10 +66,11 @@ class MessagePassingLayer(nn.Module):
 
 class MessagePassingModule(nn.Module):
 
-    def __init__(self, hidden_dim, message_dim, num_steps, attn_layer):
+    def __init__(self, hidden_dim, message_dim, num_steps):
         super().__init__()
         self.num_steps = num_steps
-        self.mpl = MessagePassingLayer(hidden_dim, message_dim, attn_layer)
+        self.attn_layer = AttnBlock(hidden_dim, hidden_dim, hidden_dim, num_heads = 1)
+        self.mpl = MessagePassingLayer(hidden_dim, message_dim, self.attn_layer)
 
     def forward(self, X, A):
         for _ in range(self.num_steps):

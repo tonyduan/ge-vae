@@ -3,6 +3,7 @@ import networkx as nx
 import itertools
 from argparse import ArgumentParser
 from gf.utils import *
+from tqdm import tqdm
 
 
 def gen_graphs(sizes, p_intra=0.7, p_inter=0.01):
@@ -11,7 +12,7 @@ def gen_graphs(sizes, p_intra=0.7, p_inter=0.01):
     """
     max_size = np.max(sizes)
     A = []
-    for V in sizes:
+    for V in tqdm(sizes):
         comms = [nx.gnp_random_graph(V // 2, p_intra),
                  nx.gnp_random_graph((V + 1) // 2, p_intra)]
         graph = nx.disjoint_union_all(comms)
@@ -26,7 +27,7 @@ def gen_graphs(sizes, p_intra=0.7, p_inter=0.01):
         np.random.shuffle(P)
         graph = P.T @ graph @ P
         if nx.number_connected_components(nx.from_numpy_array(graph)) > 1:
-            sizes += [V]
+            sizes = sizes + [V]
             continue
         A.append(graph)
     return np.array(A)
@@ -42,8 +43,7 @@ if __name__ == "__main__":
 
     np.random.seed(args.seed)
 
-    V = np.random.choice(np.arange(10, 20), size = args.train_N)
-    #V = np.ones(args.train_N, dtype = int) * 16
+    V = np.random.choice(np.arange(10, 100), size = args.train_N)
     A = gen_graphs(V)
     E = np.array([compute_fgsd_embeddings(a) for a in A])
 
@@ -53,6 +53,7 @@ if __name__ == "__main__":
 
     V = np.random.choice(np.arange(10, 20), size = args.test_N)
     A = gen_graphs(V)
+    V = [len(a) for a in A]
     E = np.array([compute_fgsd_embeddings(a) for a in A])
 
     np.save("datasets/community/test_A.npy", A)

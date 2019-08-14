@@ -5,7 +5,7 @@ import numpy as np
 from argparse import ArgumentParser
 from torch.utils.data.dataloader import DataLoader
 from gf.utils import *
-from gf.datasets import EdgeDataset, CustomBatchSampler
+from gf.datasets import *
 from gf.models.ep import EdgePredictor
 
 
@@ -14,9 +14,9 @@ if __name__ == "__main__":
     argparser = ArgumentParser()
     argparser.add_argument("--K", default=4, type=int)
     argparser.add_argument("--dataset", default="community")
-    argparser.add_argument("--lr", default=0.01, type=float)
-    argparser.add_argument("--iterations", default=4000, type=int)
-    argparser.add_argument("--batch-size", default=2000, type=int)
+    argparser.add_argument("--lr", default=0.001, type=float)
+    argparser.add_argument("--iterations", default=1000, type=int)
+    argparser.add_argument("--batch-size", default=64, type=int)
     argparser.add_argument("--device", default="cuda:0")
     argparser.add_argument("--noise", default=0.01, type=float)
     argparser.add_argument("--load", action="store_true")
@@ -34,12 +34,13 @@ if __name__ == "__main__":
     mu = np.mean(np.vstack([e[:,:args.K] for e in E]), axis = 0)
     sigma = np.std(np.vstack([e[:,:args.K] for e in E]), axis = 0)
     E = [(e - mu) / sigma for e in E]
-    E, A = zip(*sorted(zip(E, A), key = lambda t: len(t[0])))
 
     #_, X, Y = convert_embeddings_pairwise(E, A)
-    edge_data = EdgeDataset(E, A, device = "cpu")
-    sampler = CustomBatchSampler(edge_data, batch_size = args.batch_size)
-    dataloader = DataLoader(edge_data, batch_sampler = sampler)
+    #edge_data = EdgeDataset(E, A, device = "cpu")
+    #sampler = CustomBatchSampler(edge_data, batch_size = args.batch_size)
+    edge_data = GraphDataset(E, A, device = args.device)
+    dataloader = DataLoader(edge_data, batch_size = 64, shuffle = True, collate_fn = custom_collate_fn)
+
     iterator = iter(dataloader)
 
     edge_predictor = EdgePredictor(args.K, device = args.device)
@@ -54,17 +55,17 @@ if __name__ == "__main__":
     for i in range(args.iterations):
         optimizer.zero_grad()
         try:
-            X_batch, Y_batch = next(iterator)
+            X_batch, Y_batch, V_batch = next(iterator)
         except StopIteration:
             iterator = iter(dataloader)
-            X_batch, Y_batch = next(iterator)
+            X_batch, Y_batch, V_batch = next(iterator)
             epoch_no += 1
-        loss = edge_predictor.loss(X_batch, Y_batch).mean()
+        loss = -edge_predictor.log_prob_per_edge(X_batch, Y_batch, V_batch).mean()
         loss.backward()
         optimizer.step()
         if i % 1 == 0:
             logger.info(f"Iter: {i}\t" + \
-                        f"Loss: {loss.mean().data:.2f}\t" + \
+                        f"Logprob: {-loss.mean().data:.2f}\t" + \
                         f"Batch size: {len(X_batch)}\t" + \
                         f"Epoch: {epoch_no}")
 
