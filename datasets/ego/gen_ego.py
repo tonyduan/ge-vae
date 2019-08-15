@@ -30,12 +30,18 @@ if __name__ == "__main__":
     argparser = ArgumentParser()
     argparser.add_argument("--train-N", default=600, type=int)
     argparser.add_argument("--seed", default=123, type=int)
+    argparser.add_argument("--noise", default=0.025, type=float)
     args = argparser.parse_args()
 
     np.random.seed(args.seed)
 
     V, A = gen_graphs()
     E = np.array([compute_fgsd_embeddings(a) for a in A])
+
+    E = [e + args.noise * np.random.randn(*e.shape) for e in E]
+    mu = np.mean(np.vstack(E), axis = 0)
+    sigma = np.std(np.vstack(E), axis = 0)
+    E = [(e - mu) / sigma for e in E]
 
     train_idxs = np.random.choice(len(V), args.train_N, replace = False)
     test_idxs = np.setdiff1d(np.arange(len(V)), train_idxs)
@@ -48,3 +54,5 @@ if __name__ == "__main__":
     np.save("datasets/ego/test_E.npy", E[test_idxs])
     np.save("datasets/ego/test_V.npy", V[test_idxs])
 
+    np.save("datasets/ego/mu.npy", mu)
+    np.save("datasets/ego/sigma.npy", sigma)

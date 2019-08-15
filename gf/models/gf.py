@@ -6,9 +6,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as init
-from torch.distributions import Normal, MultivariateNormal, Distribution, Poisson, Bernoulli
+from torch.distributions import *
 from gf.modules.attn import ISAB, PMA, MAB, SAB
 from gf.modules.splines import unconstrained_RQS
+from gf.modules.mlp import MLP
 from gf.models.ep import EdgePredictor
 from gf.utils import *
 
@@ -65,24 +66,6 @@ class OneByOneConv(nn.Module):
         return x, log_det
 
 
-class MLP(nn.Module):
-    """
-    Simple fully connected neural network.
-    """
-    def __init__(self, in_dim, out_dim, hidden_dim):
-        super().__init__()
-        self.network = nn.Sequential(
-            nn.Linear(in_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, out_dim),
-        )
-
-    def forward(self, x):
-        return self.network(x)
-
-
 class GFLayerNSF(nn.Module):
     """
     Neural spline flow, coupling layer.
@@ -96,7 +79,8 @@ class GFLayerNSF(nn.Module):
         self.B = B
         self.f1 = ISAB(embedding_dim // 2, hidden_dim, 1, 16)
         self.f2 = ISAB(embedding_dim // 2, hidden_dim, 1, 16)
-        self.base_network = base_network(hidden_dim, (3 * K - 1) * embedding_dim // 2, hidden_dim)
+        self.base_network = base_network(
+            hidden_dim, (3 * K - 1) * embedding_dim // 2, hidden_dim, device)
         self.conv = OneByOneConv(embedding_dim, device)
         self.actnorm = ActNorm(embedding_dim, device)
 
@@ -165,27 +149,28 @@ class GF(nn.Module):
                                       for _ in range(num_flows)])
         self.flows_Z = nn.ModuleList([GFLayerNSF(embedding_dim, device) \
                                       for _ in range(num_flows)])
-        self.device = device
-        self.n_nodes_lambda = nn.Parameter(torch.ones(1, device = device))
         self.ep = EdgePredictor(embedding_dim, device)
         self.final_actnorm = ActNorm(embedding_dim, device)
+        self.prior_gen = lambda n_nodes: \
+            Normal(torch.zeros(embedding_dim * n_nodes, device = self.device),
+                   torch.ones(embedding_dim * n_nodes, device = self.device))
+        self.device = device
 
-    def sample_prior(self, n_batch):
-        n_nodes = 20
-        prior = Normal(loc = torch.zeros(n_nodes * self.embedding_dim, 
-                                         device = self.device),
-                       scale = torch.ones(n_nodes * self.embedding_dim, 
-                                          device = self.device))
-        Z = prior.sample((n_batch,))
-        Z = Z.reshape((n_batch, n_nodes, self.embedding_dim))
-        V = torch.ones(n_batch) * n_nodes
-        return Z, V
+    def sample_prior(self, n_batch, n_nodes = 20):
+        z = self.prior_gen(n_nodes).sample((n_batch,))
+        z = z.reshape((n_batch, n_nodes, self.embedding_dim))
+        v = torch.ones(n_batch) * n_nodes
+        return z, v
 
     def forward(self, x, a, v):
         """
         Returns
         -------
-            log probability per node
+        z: (batch_size) x (max_n_nodes) x (embedding_size) latent features
+
+        lpn: (batch_size) log probability per node
+
+        lpe: (batch_size) log probability per edge
         """
         batch_size, max_n_nodes = x.shape[0], x.shape[1]
         log_det = torch.zeros(batch_size, device=self.device)
@@ -198,15 +183,12 @@ class GF(nn.Module):
             log_det += LD
         x, LD = self.final_actnorm(x, v)
         log_det += LD
-        prior = Normal(loc = torch.zeros(max_n_nodes * self.embedding_dim, 
-                                         device = self.device),
-                       scale = torch.ones(max_n_nodes * self.embedding_dim, 
-                                          device = self.device))
-        Z, prior_logprob = x, prior.log_prob(x.view(batch_size, -1))
+        prior = self.prior_gen(max_n_nodes)
+        z, prior_logprob = x, prior.log_prob(x.view(batch_size, -1))
         prior_logprob = prior_logprob.reshape((batch_size, max_n_nodes, -1))
         mask = construct_embedding_mask(v)
         prior_logprob = torch.sum(prior_logprob * mask.unsqueeze(2), dim = (1, 2))
-        return Z, (prior_logprob + log_det) / v / self.embedding_dim, ep_logprob 
+        return z, (prior_logprob + log_det) / v / self.embedding_dim, ep_logprob 
 
     def predict_A_from_E(self, X, V):
         batch_size, n_nodes = X.shape[0], X.shape[1]

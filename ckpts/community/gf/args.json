@@ -1,0 +1,1 @@
+{"dataset": "community", "K": 4, "n_flows": 2, "lr": 0.001, "iterations": 15000, "device": "cuda:7", "batch_size": 256, "print_every": 1, "load": false}

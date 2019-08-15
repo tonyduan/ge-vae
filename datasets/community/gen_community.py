@@ -39,24 +39,30 @@ if __name__ == "__main__":
     argparser.add_argument("--train-N", default=2500, type=int)
     argparser.add_argument("--test-N", default=1000, type=int)
     argparser.add_argument("--seed", default=123, type=int)
+    argparser.add_argument("--noise", default=0.025, type=float)
     args = argparser.parse_args()
 
     np.random.seed(args.seed)
 
-    V = np.random.choice(np.arange(10, 100), size = args.train_N)
+    V = np.random.choice(np.arange(12, 20), size = args.train_N + args.test_N)
     A = gen_graphs(V)
     E = np.array([compute_fgsd_embeddings(a) for a in A])
 
-    np.save("datasets/community/train_A.npy", A)
-    np.save("datasets/community/train_E.npy", E)
-    np.save("datasets/community/train_V.npy", V)
+    E = [e + args.noise * np.random.randn(*e.shape) for e in E]
+    mu = np.mean(np.vstack(E), axis = 0)
+    sigma = np.std(np.vstack(E), axis = 0)
+    E = [(e - mu) / sigma for e in E]
 
-    V = np.random.choice(np.arange(10, 20), size = args.test_N)
-    A = gen_graphs(V)
-    V = [len(a) for a in A]
-    E = np.array([compute_fgsd_embeddings(a) for a in A])
+    train_idxs = np.random.choice(len(V), args.train_N, replace = False)
+    test_idxs = np.setdiff1d(np.arange(len(V)), train_idxs)
 
-    np.save("datasets/community/test_A.npy", A)
-    np.save("datasets/community/test_E.npy", E)
-    np.save("datasets/community/test_V.npy", V)
+    np.save("datasets/community/train_A.npy", A[train_idxs])
+    np.save("datasets/community/train_E.npy", E[train_idxs])
+    np.save("datasets/community/train_V.npy", V[train_idxs])
 
+    np.save("datasets/community/test_A.npy", A[test_idxs])
+    np.save("datasets/community/test_E.npy", E[test_idxs])
+    np.save("datasets/community/test_V.npy", V[test_idxs])
+
+    np.save("datasets/community/mu.npy", mu)
+    np.save("datasets/community/sigma.npy", sigma)

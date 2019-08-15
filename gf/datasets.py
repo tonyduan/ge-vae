@@ -5,6 +5,11 @@ from torch.utils.data.sampler import Sampler, SequentialSampler
 
 
 def custom_collate_fn(batch):
+    """
+    Collate function that batches graphs of varying sizes together into the
+    same mini-batch, by padding embeddings / adjacency matrices with zeros.
+    Masks are tracked by returning |V| as an extra dataset.
+    """
     batch_size = len(batch)
     embed_size = len(batch[0][0][0])
     max_n_nodes = max([len(l) for l, a in batch])

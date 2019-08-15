@@ -1,5 +1,3 @@
-import logging
-import itertools
 import numpy as np
 import torch
 import numpy as np
@@ -14,7 +12,6 @@ from matplotlib import pyplot as plt
 mpl.use("agg")
 
 
-
 def plot_sample_graphs(A):
     plt.figure(figsize=(8, 3))
     for idx in range(len(A)):
@@ -22,7 +19,6 @@ def plot_sample_graphs(A):
         graph = A[idx]
         G = nx.from_numpy_matrix(graph)
         nx.draw(G, node_color = "black", node_size = 20)
-    plt.savefig("./ckpts/img/sample.png")
 
 
 def plot_prior_histograms(model, E, A, V):
@@ -69,7 +65,7 @@ def interpolate(model, x1, x2, x3, x4, mu, sigma):
     plt.savefig("./ckpts/img/interpolate.png")
 
 
-def show_embeddings_and_samples(model, E, A, V, mu, sigma):
+def show_embeddings_and_samples(model, E, A, V):
     plt.figure(figsize=(10, 12))
     for i in range(4):
 
@@ -103,8 +99,6 @@ def show_embeddings_and_samples(model, E, A, V, mu, sigma):
         plt.title("Generated")
 
     plt.tight_layout()
-    plt.show()
-    plt.savefig("./ckpts/img/gf.png")
 
 
 def plot_ep_samples(model, E, V):
@@ -112,7 +106,6 @@ def plot_ep_samples(model, E, V):
     for i in range(len(E)):
         e = torch.tensor([E[i]], dtype = torch.float)
         v = torch.tensor([V[i]], dtype = torch.float)
-        breakpoint()
         A_hat = model.predict_A_from_E(e, v).data.numpy()[0]
         Z = np.random.rand(*A_hat.shape)
         A_sample = (np.tril(Z) + np.tril(Z, -1).T < A_hat).astype(int)
@@ -120,7 +113,6 @@ def plot_ep_samples(model, E, V):
         nx.draw(nx.from_numpy_array(A_sample), node_color = "black",
                 node_size = 20)
     plt.tight_layout()
-    plt.savefig("./ckpts/img/ep.png")
 
 
 if __name__ == "__main__":
@@ -136,17 +128,17 @@ if __name__ == "__main__":
     E = [e[:, :args.K] for e in E]
 
     model = GF(embedding_dim = args.K, num_flows = 2, device = "cpu")
-    model.load_state_dict(torch.load("./ckpts/gf/weights.torch"))
-    mu = np.load("./ckpts/gf/mu.npy")
-    sigma = np.load("./ckpts/gf/sigma.npy")
-    E = [(e - mu) / sigma for e in E]
+    model.load_state_dict(torch.load(f"./ckpts/{args.dataset}/gf/weights.torch"))
 
     # == create the figures
     plot_sample_graphs(A[:4])
+    plt.savefig(f"./ckpts/{args.dataset}/gf/sample.png")
     #plot_prior_histograms(model, E, A, V)
-    show_embeddings_and_samples(model, E[:4], A[:4], V[:4], mu, sigma)
+    show_embeddings_and_samples(model, E[:4], A[:4], V[:4])
+    plt.savefig(f"./ckpts/{args.dataset}/gf/gf.png")
     idx = np.random.choice(len(E) - 8)
     plot_ep_samples(model, E[idx:idx + 8], V[idx:idx+8])
+    plt.savefig(f"./ckpts/{args.dataset}/gf/ep.png")
     #E = list(filter(lambda e: len(e) == 16, E))
     #interpolate(model, edge_predictor, E[0], E[1], E[2], E[3], mu, sigma)
 
