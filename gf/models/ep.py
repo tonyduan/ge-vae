@@ -28,8 +28,9 @@ class EdgePredictor(nn.Module):
         F = Z1 @ Z1.transpose(1, 2)
         Z2 = self.individual_mlp(self.individual_query(E, mask))
         G = Z2 @ Z2.transpose(1,2)
-        Z3 = self.global_mlp((E * mask.unsqueeze(2)).sum(dim = 1) / V)
-        H = Z3.unsqueeze(2) @ Z3..unsqueeze(2)transpose(1, 2)
+        Z3 = (E * mask.float().unsqueeze(2)).sum(dim = 1) / V.unsqueeze(1)
+        Z3 = self.global_mlp(Z3)
+        H = Z3.unsqueeze(2) @ Z3.unsqueeze(2).transpose(1, 2)
         return F * torch.exp(self.scale1) + \
                G * torch.exp(self.scale2) + \
                H * torch.exp(self.scale3) + \

@@ -39,9 +39,11 @@ if __name__ == "__main__":
     E = np.array([compute_fgsd_embeddings(a) for a in A])
 
     E = [e + args.noise * np.random.randn(*e.shape) for e in E]
+    K = min([e.shape[1] for e in E])
+    E = [e[:, :K] for e in E]
     mu = np.mean(np.vstack(E), axis = 0)
     sigma = np.std(np.vstack(E), axis = 0)
-    E = [(e - mu) / sigma for e in E]
+    E = np.array([(e - mu) / sigma for e in E])
 
     train_idxs = np.random.choice(len(V), args.train_N, replace = False)
     test_idxs = np.setdiff1d(np.arange(len(V)), train_idxs)

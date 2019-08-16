@@ -2,4 +2,5 @@
 *.swp
 *.pyc
 *.npy
+*.png
 .ipynb_checkpoints/

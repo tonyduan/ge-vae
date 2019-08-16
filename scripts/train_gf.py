@@ -92,6 +92,7 @@ if __name__ == "__main__":
 
     plt.figure(figsize=(8, 5))
     plt.plot(np.arange(len(losses)) + 1, losses, color = "black", alpha = 0.5)
+    plt.ylim(top = 3.0)
     plt.title("Training loss")
     plt.savefig(f"{ckpts_dir}/loss_curve.png")
 
