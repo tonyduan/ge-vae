@@ -115,7 +115,7 @@ class GFLayerNSF(nn.Module):
     def backward(self, z, v):
         batch_size, max_n_nodes = z.shape[0], z.shape[1]
         mask = construct_embedding_mask(v)
-        log_det = torch.zeros_like(z)
+        log_det = torch.zeros_like(v)
         lower = z[:, :, :self.embedding_dim // 2]
         upper = z[:, :, self.embedding_dim // 2:]
         out = self.base_network(self.f2(upper, mask.byte())).reshape(
@@ -190,16 +190,15 @@ class GF(nn.Module):
         prior_logprob = torch.sum(prior_logprob * mask.unsqueeze(2), dim = (1, 2))
         return z, (prior_logprob + log_det) / v / self.embedding_dim, ep_logprob 
 
-    def predict_A_from_E(self, X, V):
+    def predict_a_from_e(self, X, V):
         batch_size, n_nodes = X.shape[0], X.shape[1]
         for flow in self.flows_L:
             X,  _ = flow.forward(X, V)
         return Bernoulli(logits = self.ep.forward(X, V)).probs
 
-    def backward(self, Z, V):
-        B, N, _ = Z.shape
-        Z, _ = self.final_actnorm.backward(Z, V)
+    def backward(self, z, v):
+        z, _ = self.final_actnorm.backward(z, v)
         for flow in self.flows_Z[::-1]:
-            Z, _ = flow.backward(Z, V)
-        return Z
+            z, _ = flow.backward(z, v)
+        return z
 

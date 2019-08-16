@@ -1,5 +1,5 @@
 import logging
-import itertools
+import json
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -9,7 +9,6 @@ import matplotlib as mpl
 from argparse import ArgumentParser
 from matplotlib import pyplot as plt
 from torch.utils.data.dataloader import DataLoader
-import json
 from gf.models.gf import GF
 from gf.utils import *
 from gf.datasets import *
@@ -25,7 +24,7 @@ if __name__ == "__main__":
     argparser.add_argument("--K", default=4, type=int)
     argparser.add_argument("--n-flows", default=2, type=int)
     argparser.add_argument("--lr", default=0.001, type=float)
-    argparser.add_argument("--iterations", default=15000, type=int)
+    argparser.add_argument("--iterations", default=25000, type=int)
     argparser.add_argument("--device", default="cuda:0", type=str)
     argparser.add_argument("--batch-size", default=256, type=int)
     argparser.add_argument("--print-every", default=1, type=str)
@@ -48,14 +47,14 @@ if __name__ == "__main__":
                             shuffle = True, collate_fn = custom_collate_fn)
     iterator = iter(dataloader)
 
-    model = GF(embedding_dim = args.K, num_flows = args.n_flows, 
-               device = args.device)
-
+    model = GF(args.K, args.n_flows, args.device)
     if args.load:
-        model.load_state_dict(torch.load("./ckpts/gf/weights.torch"))
+        model.load_state_dict(torch.load(f"{ckpts_dir}/weights.torch"))
 
     model = model.to(args.device)
     optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay = 1e-5)
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, 
+                                                     args.iterations)
 
     losses = np.zeros(args.iterations)
     epoch_no = 1
@@ -75,13 +74,14 @@ if __name__ == "__main__":
         loss.backward()
         losses[i] = loss.cpu().data.numpy()
         optimizer.step()
+        scheduler.step()
 
         if i % args.print_every == 0:
-            logger.info(f"Iter: {i}\t" +
+            logger.info(f"Iter: {i}\t"
                         f"Node LP: {node_lp.mean().data:.2f}\t" + 
                         f"Edge LP: {edge_lp.mean().data:.2f}\t" + 
                         f"Epoch: {epoch_no}\t" + 
-                        f"Batch size: {len(V_batch)}\t" +
+                        f"Batch size: {len(V_batch)}\t"
                         f"Max nodes: {len(A_batch[0])}")
 
     model = model.cpu()
