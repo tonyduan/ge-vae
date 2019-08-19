@@ -19,7 +19,9 @@ from matplotlib import pyplot as plt
 def get_largest_cc(A):
     cc = list(max(nx.connected_components(nx.from_numpy_array(A)), key = len))
     cc = np.array(cc)
-    return A[cc, :][:, cc]
+    A = A[cc, :][:, cc]
+    A[np.arange(len(A)), np.arange(len(A))] = 0
+    return A
 
 def plot_sample_graphs(model, dataloader):
     _, A, _ = next(iter(dataloader))
@@ -159,13 +161,15 @@ if __name__ == "__main__":
 
     gen = [nx.from_numpy_array(g) for g in gen_graphs]
     ref = [nx.from_numpy_array(a) for a in A]
+    print("== Orbit")
+    stats["orbit"] = orbit_stats(ref, gen)
+    print(stats["orbit"])
     print("== Degree")
     stats["degree"] = degree_stats(ref, gen)
     print(stats["degree"])
     print("== Cluster")
     stats["cluster"] = cluster_stats(ref, gen)
     print(stats["cluster"])
-    #print(round(orbit_stats(ref, gen), 3))
 
     # == calculate log-likelihood statistics
     node_bpd, edge_bpd = compute_test_bpd(model, dataloader)
@@ -173,10 +177,10 @@ if __name__ == "__main__":
     print(f"{np.mean(node_bpd)} \pm {np.std(node_bpd) / len(node_bpd) ** 0.5}")
     print("== Edges BPD [bits]")
     print(f"{np.mean(edge_bpd)} \pm {np.std(edge_bpd) / len(edge_bpd) ** 0.5}")
-    stats["node_bpd_mean"] = np.mean(node_bpd)
-    stats["node_bpd_stderr"] = np.std(node_bpd) / len(node_bpd) ** 0.5
-    stats["edge_bpd_mean"] = np.mean(edge_bpd)
-    stats["edge_bpd_stderr"] = np.std(edge_bpd) / len(edge_bpd) ** 0.5
+    stats["node_bpd_mean"] = float(np.mean(node_bpd))
+    stats["node_bpd_stderr"] = float(np.std(node_bpd) / len(node_bpd) ** 0.5)
+    stats["edge_bpd_mean"] = float(np.mean(edge_bpd))
+    stats["edge_bpd_stderr"] = float(np.std(edge_bpd) / len(edge_bpd) ** 0.5)
 
     with open(f"{ckpts_dir}/stats.json", "w") as statsfile:
         statsfile.write(json.dumps(stats))

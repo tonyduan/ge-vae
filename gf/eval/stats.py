@@ -6,6 +6,7 @@ import networkx as nx
 import os
 import pickle as pkl
 import time
+import subprocess
 import gf.eval.mmd as mmd
 import concurrent.futures
 from datetime import datetime
@@ -64,7 +65,7 @@ def clustering_worker(param):
             clustering_coeffs_list, bins=bins, range=(0.0, 1.0), density=False)
     return hist
 
-def clustering_stats(graph_ref_list, graph_pred_list, bins=100, is_parallel=True):
+def cluster_stats(graph_ref_list, graph_pred_list, bins=100, is_parallel=False):
     sample_ref = []
     sample_pred = []
     graph_pred_list_remove_empty = [G for G in graph_pred_list if not G.number_of_nodes() == 0]
@@ -125,14 +126,14 @@ def edge_list_reindexed(G):
     return edges
 
 def orca(graph):
-    tmp_fname = 'eval/orca/tmp.txt'
+    tmp_fname = './gf/eval/orca/tmp.txt'
     f = open(tmp_fname, 'w')
     f.write(str(graph.number_of_nodes()) + ' ' + str(graph.number_of_edges()) + '\n')
     for (u, v) in edge_list_reindexed(graph):
         f.write(str(u) + ' ' + str(v) + '\n')
     f.close()
 
-    output = subprocess.check_output(['./eval/orca/orca', 'node', '4', 'eval/orca/tmp.txt', 'std'])
+    output = subprocess.check_output(['./gf/eval/orca/orca', 'node', '4', './gf/eval/orca/tmp.txt', 'std'])
     output = output.decode('utf8').strip()
     
     idx = output.find(COUNT_START_STR) + len(COUNT_START_STR)
@@ -200,18 +201,12 @@ def orbit_stats(graph_ref_list, graph_pred_list):
     graph_pred_list_remove_empty = [G for G in graph_pred_list if not G.number_of_nodes() == 0]
 
     for G in graph_ref_list:
-        try:
-            orbit_counts = orca(G)
-        except:
-            continue
+        orbit_counts = orca(G)
         orbit_counts_graph = np.sum(orbit_counts, axis=0) / G.number_of_nodes()
         total_counts_ref.append(orbit_counts_graph)
 
     for G in graph_pred_list:
-        try:
-            orbit_counts = orca(G)
-        except:
-            continue
+        orbit_counts = orca(G)
         orbit_counts_graph = np.sum(orbit_counts, axis=0) / G.number_of_nodes()
         total_counts_pred.append(orbit_counts_graph)
 
@@ -220,10 +215,5 @@ def orbit_stats(graph_ref_list, graph_pred_list):
     mmd_dist = mmd.compute_mmd(total_counts_ref, total_counts_pred, kernel=mmd.gaussian,
             is_hist=False, sigma=30.0)
 
-    print('-------------------------')
-    print(np.sum(total_counts_ref, axis=0) / len(total_counts_ref))
-    print('...')
-    print(np.sum(total_counts_pred, axis=0) / len(total_counts_pred))
-    print('-------------------------')
     return mmd_dist
 
