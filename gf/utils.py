@@ -108,7 +108,7 @@ def reconstruct_adjacency_matrix(N, idxs, Y_hat):
     return A
 
 
-def compute_fgsd_embeddings(A, eps=1e-2):
+def compute_fgsd_embeddings_old(A, eps=1e-2):
     """
     Compute family of graph spectral distance (FGSD) embedding of a graph.
 
@@ -132,6 +132,28 @@ def compute_fgsd_embeddings(A, eps=1e-2):
     E = V @ np.diag(np.sqrt(W))
     E = np.c_[D, np.ones_like(D) * len(A), E]
     return np.real(E)
+
+
+def compute_fgsd_embeddings(A):
+    """
+    Compute locally linear embedding of a graph.
+
+    (I - A)ᵀ(I -A) = Z Λ Zᵀ
+
+    Returns the vectors Z, which solves the LLE problem.
+
+    Parameters
+    ----------
+    A: (n_nodes x n_nodes) adjacency matrix
+
+    Returns
+    -------
+    E: (n_nodes x n_nodes) LLE embeddings
+    """
+    _, S, V = np.linalg.svd(np.eye(len(A)) - A)
+    D = np.sum(A, axis=1)
+    E = np.c_[D, np.ones_like(D) * len(A), V.T]
+    return E
 
 
 def compute_fgsd_dists(A, eps=1e-2):

@@ -14,7 +14,6 @@ from gf.utils import *
 from gf.datasets import *
 from tqdm import tqdm
 from pathlib import Path
-mpl.use("agg")
 
 
 if __name__ == "__main__":

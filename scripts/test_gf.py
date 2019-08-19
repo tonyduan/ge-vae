@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-import numpy as np
+import json
 import networkx as nx
 import matplotlib as mpl
 import scipy as sp
@@ -10,10 +10,10 @@ from gf.models.gf import GF
 from gf.models.ep import EdgePredictor
 from gf.datasets import *
 from gf.utils import *
+from gf.eval.stats import *
 from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
 from matplotlib import pyplot as plt
-mpl.use("agg")
 
 
 def get_largest_cc(A):
@@ -37,11 +37,10 @@ def plot_prior_histograms(model, dataloader):
     z = []
     for E_batch, A_batch, V_batch in tqdm(iter(dataloader)):
         z_batch, _, _ = model.forward(E_batch, A_batch, V_batch)
-        z += [z_batch.data.numpy()]
+        z += [np.vstack(z_batch.data.numpy())]
     z = np.vstack(z)
-    embedding_dim = z.shape[-1]
-    z = z.reshape(-1, embedding_dim)
     x_axis = np.linspace(-4, 4, 200)
+    embedding_dim = z.shape[-1]
     plt.figure(figsize = (embedding_dim, 4))
     for i in range(embedding_dim):
         plt.subplot(2, embedding_dim // 2, i  + 1)
@@ -115,11 +114,28 @@ def compute_test_bpd(model, dataloader):
     return np.concatenate(node_bpds), np.concatenate(edge_bpds)
 
 
+def generate_for_test_set(model, dataloader, batch_size = 128):
+    gen_graphs = []
+    for _, _, v in tqdm(iter(dataloader)):
+        z_sampled, _ = model.sample_prior(len(v), int(max(v)))
+        e_sampled = model.backward(z_sampled, v)
+        mask = construct_adjacency_mask(v)
+        a_hat = torch.sigmoid(model.ep.forward(e_sampled, v)) * mask
+        a_hat = a_hat.data.numpy()
+        for i in range(len(a_hat)):
+            z = np.random.rand(*a_hat[i].shape)
+            a_sample = (np.tril(z) + np.tril(z, -1).T < a_hat[i]).astype(int)
+            cc = get_largest_cc(a_sample)
+            gen_graphs.append(cc)
+    return np.array(gen_graphs)
+
+
 if __name__ == "__main__":
 
     argparser = ArgumentParser()
     argparser.add_argument("--dataset", default="community")
-    argparser.add_argument("--K", default=4, type=int)
+    argparser.add_argument("--K", default=8, type=int)
+    argparser.add_argument("--batch-size", default=128, type=int)
     args = argparser.parse_args()
 
     E = np.load(f"datasets/{args.dataset}/test_E.npy", allow_pickle = True)
@@ -136,15 +152,37 @@ if __name__ == "__main__":
     dataloader = DataLoader(dataset, batch_size = 128, shuffle = True, 
                             collate_fn = custom_collate_fn)
 
-    # == calculate key statistics
-    node_bpd, edge_bpd = compute_test_bpd(dataloader)
-    print("== Embeddings BPD")
+    # compute generated graphs and compare quality
+    gen_graphs = generate_for_test_set(model, dataloader, args.batch_size)
+    np.save(f"{ckpts_dir}/gen_graphs.npy", gen_graphs)
+    stats = {}
+
+    gen = [nx.from_numpy_array(g) for g in gen_graphs]
+    ref = [nx.from_numpy_array(a) for a in A]
+    print("== Degree")
+    stats["degree"] = degree_stats(ref, gen)
+    print(stats["degree"])
+    print("== Cluster")
+    stats["cluster"] = cluster_stats(ref, gen)
+    print(stats["cluster"])
+    #print(round(orbit_stats(ref, gen), 3))
+
+    # == calculate log-likelihood statistics
+    node_bpd, edge_bpd = compute_test_bpd(model, dataloader)
+    print("== Embeddings BPD [bits]")
     print(f"{np.mean(node_bpd)} \pm {np.std(node_bpd) / len(node_bpd) ** 0.5}")
-    print("== Edges BPD")
+    print("== Edges BPD [bits]")
     print(f"{np.mean(edge_bpd)} \pm {np.std(edge_bpd) / len(edge_bpd) ** 0.5}")
+    stats["node_bpd_mean"] = np.mean(node_bpd)
+    stats["node_bpd_stderr"] = np.std(node_bpd) / len(node_bpd) ** 0.5
+    stats["edge_bpd_mean"] = np.mean(edge_bpd)
+    stats["edge_bpd_stderr"] = np.std(edge_bpd) / len(edge_bpd) ** 0.5
+
+    with open(f"{ckpts_dir}/stats.json", "w") as statsfile:
+        statsfile.write(json.dumps(stats))
 
     # == create the figures using entire dataset
-    plot_prior_histograms(dataloader)
+    plot_prior_histograms(model, dataloader)
     plt.savefig(f"{ckpts_dir}/prior.png")
 
     # == create the figures using subsamples
