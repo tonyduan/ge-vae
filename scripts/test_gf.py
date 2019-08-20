@@ -107,10 +107,10 @@ def plot_reconstructions(model, dataloader):
 def plot_loss_curve(loss_curve):
     plt.figure(figsize=(8, 5))
     x_axis = np.arange(len(loss_curve["edge_lp"])) + 1
-    plt.plot(x_axis, loss_curve["node_lp"], color = "black", alpha = 0.5,
-             label = "Node LL [nats per dim]")
-    plt.plot(x_axis, loss_curve["edge_lp"], color = "blue", alpha = 0.5,
-             label = "Edge LL [nats per dim]")
+    plt.plot(x_axis, -loss_curve["node_lp"], color = "black", alpha = 0.5,
+             label = "Node NLL [bits per dim]")
+    plt.plot(x_axis, -loss_curve["edge_lp"], color = "blue", alpha = 0.5,
+             label = "Edge NLL [bits per dim]")
     plt.ylim(bottom = -3.0)
     plt.title("Training loss")
 
@@ -122,8 +122,8 @@ def compute_test_bpd(model, dataloader):
     node_bpds, edge_bpds = [], []
     for E_batch, A_batch, V_batch in tqdm(iter(dataloader)):
         _, node_lp, edge_lp = model.forward(E_batch, A_batch, V_batch)
-        node_bpds += [-node_lp.data.numpy() / np.log(2)]
-        edge_bpds += [-edge_lp.data.numpy() / np.log(2)]
+        node_bpds += [-node_lp.data.numpy()]
+        edge_bpds += [-edge_lp.data.numpy()]
     return np.concatenate(node_bpds), np.concatenate(edge_bpds)
 
 
@@ -150,8 +150,8 @@ if __name__ == "__main__":
     argparser.add_argument("--batch-size", default=128, type=int)
     args = argparser.parse_args()
 
-    ckpts_dir = f"./ckpts/{args.dataset}/gf/"
-    args_json = open(f"./ckpts/{args.dataset}/gf/args.json", "r")
+    ckpts_dir = f"./ckpts/{args.dataset}/gf"
+    args_json = open(f"{ckpts_dir}/args.json", "r")
     args_json = json.loads(args_json.read())
 
     E = np.load(f"datasets/{args.dataset}/test_E.npy", allow_pickle = True)

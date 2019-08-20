@@ -190,7 +190,9 @@ class GF(nn.Module):
         prior_logprob = prior_logprob.reshape((batch_size, max_n_nodes, -1))
         mask = construct_embedding_mask(v)
         prior_logprob = torch.sum(prior_logprob * mask.unsqueeze(2), dim = (1, 2))
-        return z, (prior_logprob + log_det) / v / self.embedding_dim, ep_logprob 
+        node_logprob = (prior_logprob + log_det) / v / self.embedding_dim 
+        const = torch.log(torch.tensor(2.0))
+        return z, node_logprob / const, ep_logprob / const
 
     def predict_a_from_e(self, X, V):
         batch_size, n_nodes = X.shape[0], X.shape[1]
