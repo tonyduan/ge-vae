@@ -159,6 +159,8 @@ if __name__ == "__main__":
     np.save(f"{ckpts_dir}/gen_graphs.npy", gen_graphs)
     stats = {}
 
+    for i in range(len(A)):
+        A[i][np.arange(len(A[i])), np.arange(len(A[i]))] = 0
     gen = [nx.from_numpy_array(g) for g in gen_graphs]
     ref = [nx.from_numpy_array(a) for a in A]
     print("== Orbit")

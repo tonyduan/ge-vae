@@ -77,6 +77,7 @@ if __name__ == "__main__":
 
         if i % args.print_every == 0:
             logger.info(f"Iter: {i}\t"
+                        f"Dataset: {args.dataset}\t" + 
                         f"Node LP: {node_lp.mean().data:.2f}\t" + 
                         f"Edge LP: {edge_lp.mean().data:.2f}\t" + 
                         f"Epoch: {epoch_no}\t" + 
@@ -89,6 +90,7 @@ if __name__ == "__main__":
     with open(f"{ckpts_dir}/args.json", "w") as argsfile:
         argsfile.write(json.dumps(args.__dict__))
 
+    np.save(f"{ckpts_dir}/loss_curve.npy", losses)
     plt.figure(figsize=(8, 5))
     plt.plot(np.arange(len(losses)) + 1, losses, color = "black", alpha = 0.5)
     plt.ylim(top = 3.0)
