@@ -59,22 +59,6 @@ class ISAB(nn.Module):
         H = self.mab0(self.I.repeat(X.shape[0], 1, 1), X, mask)
         return self.mab1(X, H)
 
-
-class ISABStack(nn.Module):
-    
-    def __init__(self, stack_size, dim_in, dim_out, num_heads, num_inds, device = "cpu"):
-        super().__init__()
-        self.isabs = nn.ModuleList(
-            [ISAB(dim_in, dim_out, 1, num_inds, device)] + 
-            [ISAB(dim_out, dim_out, num_heads, num_inds, device) \
-             for _ in range(stack_size - 1)])
-
-    def forward(self, X, mask = None):
-        for isab in self.isabs:
-            X = isab(X, mask)
-        return X
-
-
 class PMA(nn.Module):
 
     def __init__(self, dim, num_heads, num_seeds=1):
@@ -85,4 +69,22 @@ class PMA(nn.Module):
 
     def forward(self, X):
         return self.mab(self.S.repeat(X.size(0), 1, 1), X)
+
+class ISABStack(nn.Module):
+    
+    def __init__(self, stack_size, dim_in, dim_out, num_heads, num_inds, 
+                 device = "cpu"):
+        super().__init__()
+        self.isabs = nn.ModuleList(
+            [ISAB(dim_in, dim_out, 1, num_inds, device)] + 
+            [ISAB(dim_out, dim_out, num_heads, num_inds, device) \
+             for _ in range(stack_size - 1)])
+        self.dropout = nn.Dropout(p = 0.10)
+
+    def forward(self, X, mask = None):
+        for isab in self.isabs:
+            X = isab(X, mask)
+            X = self.dropout(X)
+        return X
+
 

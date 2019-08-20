@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as init
 from torch.distributions import *
-from gf.modules.attn import ISAB, PMA, MAB, SAB
+from gf.modules.attn import *
 from gf.modules.splines import unconstrained_RQS
 from gf.modules.mlp import MLP
 from gf.models.ep import EdgePredictor
@@ -77,8 +77,10 @@ class GFLayerNSF(nn.Module):
         self.device = device
         self.K = K
         self.B = B
-        self.f1 = ISAB(embedding_dim // 2, hidden_dim, 1, 16)
-        self.f2 = ISAB(embedding_dim // 2, hidden_dim, 1, 16)
+#        self.f1 = ISAB(embedding_dim // 2, hidden_dim, 1, 16)
+#        self.f2 = ISAB(embedding_dim // 2, hidden_dim, 1, 16)
+        self.f1 = ISABStack(1, embedding_dim // 2, hidden_dim, 1, 16)
+        self.f2 = ISABStack(1, embedding_dim // 2, hidden_dim, 1, 16)
         self.base_network = base_network(
             hidden_dim, (3 * K - 1) * embedding_dim // 2, hidden_dim, device)
         self.conv = OneByOneConv(embedding_dim, device)

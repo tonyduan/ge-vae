@@ -1,5 +1,6 @@
 *.torch
 *.swp
+*.json
 *.pyc
 *.npy
 *.png

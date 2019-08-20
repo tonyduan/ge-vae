@@ -5,7 +5,7 @@ from dfply import *
 
 if __name__ == "__main__":
     
-    datasets = ["community_big", "ego", "protein"]
+    datasets = ["community_big", "ego", "grid_big", "protein"]
     df = []
 
     for dataset in datasets:

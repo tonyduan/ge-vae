@@ -104,6 +104,17 @@ def plot_reconstructions(model, dataloader):
     plt.tight_layout()
 
 
+def plot_loss_curve(loss_curve):
+    plt.figure(figsize=(8, 5))
+    x_axis = np.arange(len(loss_curve["edge_lp"])) + 1
+    plt.plot(x_axis, loss_curve["node_lp"], color = "black", alpha = 0.5,
+             label = "Node LL [nats per dim]")
+    plt.plot(x_axis, loss_curve["edge_lp"], color = "blue", alpha = 0.5,
+             label = "Edge LL [nats per dim]")
+    plt.ylim(bottom = -3.0)
+    plt.title("Training loss")
+
+
 def compute_test_bpd(model, dataloader):
     """
     Compute the test BPD per embedding dimension and per edge.
@@ -136,23 +147,30 @@ if __name__ == "__main__":
 
     argparser = ArgumentParser()
     argparser.add_argument("--dataset", default="community")
-    argparser.add_argument("--K", default=8, type=int)
     argparser.add_argument("--batch-size", default=128, type=int)
     args = argparser.parse_args()
+
+    ckpts_dir = f"./ckpts/{args.dataset}/gf/"
+    args_json = open(f"./ckpts/{args.dataset}/gf/args.json", "r")
+    args_json = json.loads(args_json.read())
 
     E = np.load(f"datasets/{args.dataset}/test_E.npy", allow_pickle = True)
     A = np.load(f"datasets/{args.dataset}/test_A.npy", allow_pickle = True)
     V = np.load(f"datasets/{args.dataset}/test_V.npy")
-    E = [e[:, :args.K] for e in E]
+    E = [e[:, :args_json["K"]] for e in E]
 
-    ckpts_dir = f"./ckpts/{args.dataset}/gf/"
-
-    model = GF(embedding_dim = args.K, num_flows = 2, device = "cpu")
+    model = GF(embedding_dim = args_json["K"], 
+               num_flows = args_json["n_flows"],  device = "cpu")
     model.load_state_dict(torch.load(f"{ckpts_dir}/weights.torch"))
+    model = model.eval()
 
     dataset = GraphDataset(E, A, device = "cpu")
     dataloader = DataLoader(dataset, batch_size = 128, shuffle = True, 
                             collate_fn = custom_collate_fn)
+
+    # plot training statistics
+    plot_loss_curve(np.load(f"{ckpts_dir}/loss_curve.json"))
+    plt.savefig(f"{ckpts_dir}/loss_curve.png")
 
     # compute generated graphs and compare quality
     gen_graphs = generate_for_test_set(model, dataloader, args.batch_size)

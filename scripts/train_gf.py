@@ -5,12 +5,10 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import networkx as nx
-import matplotlib as mpl
 from argparse import ArgumentParser
-from matplotlib import pyplot as plt
+from collections import defaultdict
 from torch.utils.data.dataloader import DataLoader
 from gf.models.gf import GF
-from gf.utils import *
 from gf.datasets import *
 from tqdm import tqdm
 from pathlib import Path
@@ -50,12 +48,12 @@ if __name__ == "__main__":
     if args.load:
         model.load_state_dict(torch.load(f"{ckpts_dir}/weights.torch"))
 
-    model = model.to(args.device)
+    model = model.to(args.device).train()
     optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay = 1e-5)
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, 
                                                      args.iterations)
 
-    losses = np.zeros(args.iterations)
+    loss_curve = defaultdict(list)
     epoch_no = 1
 
     for i in range(args.iterations):
@@ -71,7 +69,8 @@ if __name__ == "__main__":
         _, node_lp, edge_lp = model.forward(E_batch, A_batch, V_batch)
         loss = -torch.mean(node_lp + edge_lp)
         loss.backward()
-        losses[i] = loss.cpu().data.numpy()
+        loss_curve["node_lp"].append(node_lp.data.cpu().numpy().mean())
+        loss_curve["edge_lp"].append(edge_lp.data.cpu().numpy().mean())
         optimizer.step()
         scheduler.step()
 
@@ -90,10 +89,6 @@ if __name__ == "__main__":
     with open(f"{ckpts_dir}/args.json", "w") as argsfile:
         argsfile.write(json.dumps(args.__dict__))
 
-    np.save(f"{ckpts_dir}/loss_curve.npy", losses)
-    plt.figure(figsize=(8, 5))
-    plt.plot(np.arange(len(losses)) + 1, losses, color = "black", alpha = 0.5)
-    plt.ylim(top = 3.0)
-    plt.title("Training loss")
-    plt.savefig(f"{ckpts_dir}/loss_curve.png")
+    with open(f"{ckpts_dir}/loss_curve.json", "w") as argsfile:
+        argsfile.write(json.dumps(loss_curve))
 

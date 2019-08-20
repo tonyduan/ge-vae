@@ -1,1 +1,1 @@
-{"dataset": "ba", "K": 8, "n_flows": 2, "lr": 0.001, "iterations": 25000, "device": "cuda:1", "batch_size": 128, "print_every": 1, "load": false}
+{"dataset": "ba", "K": 12, "n_flows": 2, "lr": 0.0005, "iterations": 25000, "device": "cuda:1", "batch_size": 256, "print_every": 1, "load": false}
