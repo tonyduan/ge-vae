@@ -13,9 +13,10 @@ def custom_collate_fn(batch):
     batch_size = len(batch)
     embed_size = len(batch[0][0][0])
     max_n_nodes = max([len(l) for l, a in batch])
-    L = torch.zeros(batch_size, max_n_nodes, embed_size).to(batch[0][0].device)
-    A = torch.zeros(batch_size, max_n_nodes, max_n_nodes.to(batch[0][0].device)
-    V = torch.zeros(batch_size, dtype = torch.float).to(batch[0][0].device)
+    tgt_device = batch[0][0].device
+    L = torch.zeros(batch_size, max_n_nodes, embed_size).to(tgt_device)
+    A = torch.zeros(batch_size, max_n_nodes, max_n_nodes).to(tgt_device)
+    V = torch.zeros(batch_size, dtype = torch.float).to(tgt_device)
     for i, (l, a) in enumerate(batch):
         n_nodes = len(l)
         V[i] = n_nodes

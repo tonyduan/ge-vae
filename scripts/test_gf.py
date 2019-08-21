@@ -14,6 +14,7 @@ from gf.utils import *
 from gf.eval.stats import *
 from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
+mpl.use("agg")
 from matplotlib import pyplot as plt
 
 
@@ -159,7 +160,7 @@ if __name__ == "__main__":
     E = np.load(f"datasets/{args.dataset}/test_E.npy", allow_pickle = True)
     A = np.load(f"datasets/{args.dataset}/test_A.npy", allow_pickle = True)
     V = np.load(f"datasets/{args.dataset}/test_V.npy")
-    #E = [e[:, :args_json["K"]] for e in E]
+    E = [e[:, :args_json["K"]] for e in E]
 
     model = GF(embedding_dim = args_json["K"], 
                num_flows = args_json["n_flows"],  device = "cpu")
