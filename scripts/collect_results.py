@@ -19,5 +19,5 @@ if __name__ == "__main__":
                       X.edge_bpd_mean, X.edge_bpd_stderr)
     print(df)
     print("=" * 79)
-    print(df.round(3).to_latex())
+    print(df.round(3).to_latex(index = False))
 

@@ -13,9 +13,9 @@ def custom_collate_fn(batch):
     batch_size = len(batch)
     embed_size = len(batch[0][0][0])
     max_n_nodes = max([len(l) for l, a in batch])
-    L = torch.zeros(batch_size, max_n_nodes, embed_size, device = batch[0][0].device)
-    A = torch.zeros(batch_size, max_n_nodes, max_n_nodes, device = batch[0][0].device)
-    V = torch.zeros(batch_size, device = batch[0][0].device, dtype = torch.float)
+    L = torch.zeros(batch_size, max_n_nodes, embed_size).to(batch[0][0].device)
+    A = torch.zeros(batch_size, max_n_nodes, max_n_nodes.to(batch[0][0].device)
+    V = torch.zeros(batch_size, dtype = torch.float).to(batch[0][0].device)
     for i, (l, a) in enumerate(batch):
         n_nodes = len(l)
         V[i] = n_nodes
@@ -112,10 +112,9 @@ class GraphDataset(Dataset):
         self.device =  device
 
     def __getitem__(self, index):
-        return torch.tensor(self.L[index], dtype = torch.float,
-                            device = self.device), \
-               torch.tensor(self.A[index], dtype = torch.float,
-                            device = self.device)
+        L = torch.tensor(self.L[index], dtype = torch.float)
+        A = torch.tensor(self.A[index], dtype = torch.float)
+        return L.to(self.device), A.to(self.device)
 
     def __len__(self):
         return len(self.L)

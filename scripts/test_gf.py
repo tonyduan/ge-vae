@@ -3,6 +3,7 @@ import torch
 import json
 import networkx as nx
 import matplotlib as mpl
+import pandas as pd
 import scipy as sp
 import scipy.stats
 from argparse import ArgumentParser
@@ -107,11 +108,12 @@ def plot_reconstructions(model, dataloader):
 def plot_loss_curve(loss_curve):
     plt.figure(figsize=(8, 5))
     x_axis = np.arange(len(loss_curve["edge_lp"])) + 1
-    plt.plot(x_axis, -loss_curve["node_lp"], color = "black", alpha = 0.5,
+    plt.plot(x_axis, -loss_curve["node_lp"], color = "black",
              label = "Node NLL [bits per dim]")
-    plt.plot(x_axis, -loss_curve["edge_lp"], color = "blue", alpha = 0.5,
+    plt.plot(x_axis, -loss_curve["edge_lp"], color = "grey",
              label = "Edge NLL [bits per dim]")
     plt.ylim(bottom = -3.0)
+    plt.legend()
     plt.title("Training loss")
 
 
@@ -157,7 +159,7 @@ if __name__ == "__main__":
     E = np.load(f"datasets/{args.dataset}/test_E.npy", allow_pickle = True)
     A = np.load(f"datasets/{args.dataset}/test_A.npy", allow_pickle = True)
     V = np.load(f"datasets/{args.dataset}/test_V.npy")
-    E = [e[:, :args_json["K"]] for e in E]
+    #E = [e[:, :args_json["K"]] for e in E]
 
     model = GF(embedding_dim = args_json["K"], 
                num_flows = args_json["n_flows"],  device = "cpu")
@@ -169,7 +171,7 @@ if __name__ == "__main__":
                             collate_fn = custom_collate_fn)
 
     # plot training statistics
-    plot_loss_curve(np.load(f"{ckpts_dir}/loss_curve.json"))
+    plot_loss_curve(pd.read_csv(f"{ckpts_dir}/loss_curve.csv"))
     plt.savefig(f"{ckpts_dir}/loss_curve.png")
 
     # compute generated graphs and compare quality

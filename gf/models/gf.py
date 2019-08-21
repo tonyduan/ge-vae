@@ -148,7 +148,7 @@ class GF(nn.Module):
         super().__init__()
         self.embedding_dim = embedding_dim
         self.flows_L = nn.ModuleList([GFLayerNSF(embedding_dim, device) \
-                                      for _ in range(num_flows)])
+                                      for _ in range(2)])
         self.flows_Z = nn.ModuleList([GFLayerNSF(embedding_dim, device) \
                                       for _ in range(num_flows)])
         self.ep = EdgePredictor(embedding_dim, device)

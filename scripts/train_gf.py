@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
+import pandas as pd
 import networkx as nx
 from argparse import ArgumentParser
 from collections import defaultdict
@@ -89,6 +90,6 @@ if __name__ == "__main__":
     with open(f"{ckpts_dir}/args.json", "w") as argsfile:
         argsfile.write(json.dumps(args.__dict__))
 
-    with open(f"{ckpts_dir}/loss_curve.json", "w") as argsfile:
-        argsfile.write(json.dumps(loss_curve))
+    loss_curve = pd.DataFrame(loss_curve)
+    loss_curve.to_csv(f"{ckpts_dir}/loss_curve.csv")
 

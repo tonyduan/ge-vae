@@ -4,6 +4,7 @@ import numpy as np
 from argparse import ArgumentParser
 from tqdm import tqdm
 from gf.utils import *
+from gf.embeddings import *
 
 
 def load_protein_data(min_num_nodes = 20, max_num_nodes = 1000):
@@ -45,7 +46,8 @@ if __name__ == "__main__":
     np.random.seed(args.seed)
 
     V, A = load_protein_data()
-    E = np.array([compute_fgsd_embeddings(a) for a in A])
+    #E = np.array([compute_fgsd_embeddings(a) for a in A])
+    E = [compute_node2vec_embeddings(a, dim = 16) for a in tqdm(A)]
 
     E = [e + args.noise * np.random.randn(*e.shape) for e in E]
     K = min([e.shape[1] for e in E])
