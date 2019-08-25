@@ -6,23 +6,27 @@ from gf.utils import *
 from tqdm import tqdm
 
 
-def gen_graphs(sizes, p_intra=0.7, p_inter=0.01):
+def gen_graphs(sizes, p_community = 0.5, p_intra=0.7, p_inter=0.01):
     """
     Generate community graphs.
     """
     A = []
     for V in tqdm(sizes):
-        comms = [nx.gnp_random_graph(V // 2, p_intra),
-                 nx.gnp_random_graph((V + 1) // 2, p_intra)]
-        graph = nx.disjoint_union_all(comms)
-        graph = nx.to_numpy_array(graph)
-        block1 = np.arange(V // 2)
-        block2 = np.arange(V // 2, V)
-        remaining = list(itertools.product(block1, block2))
-        np.random.shuffle(remaining)
-        for (i, j) in remaining[:int(p_inter * V + 1)]:
-            graph[i,j], graph[j,i] = 1, 1
-        P = np.eye(V)
+        if np.random.rand() < p_community:
+            graph = nx.gnp_random_graph(V, p_intra)
+            graph = nx.to_numpy_array(graph)
+        else:
+            comms = [nx.gnp_random_graph(V // 2, p_intra),
+                     nx.gnp_random_graph((V + 1) // 2, p_intra)]
+            graph = nx.disjoint_union_all(comms)
+            graph = nx.to_numpy_array(graph)
+            block1 = np.arange(V // 2)
+            block2 = np.arange(V // 2, V)
+            remaining = list(itertools.product(block1, block2))
+            np.random.shuffle(remaining)
+            for (i, j) in remaining[:int(p_inter * V + 1)]:
+                graph[i,j], graph[j,i] = 1, 1
+            P = np.eye(V)
         np.random.shuffle(P)
         graph = P.T @ graph @ P
         if nx.number_connected_components(nx.from_numpy_array(graph)) > 1:
@@ -58,13 +62,13 @@ if __name__ == "__main__":
     train_idxs = np.random.choice(len(V), args.train_N, replace = False)
     test_idxs = np.setdiff1d(np.arange(len(V)), train_idxs)
 
-    np.save("datasets/community/train_A.npy", A[train_idxs])
-    np.save("datasets/community/train_E.npy", E[train_idxs])
-    np.save("datasets/community/train_V.npy", V[train_idxs])
+    np.save("datasets/community_split/train_A.npy", A[train_idxs])
+    np.save("datasets/community_split/train_E.npy", E[train_idxs])
+    np.save("datasets/community_split/train_V.npy", V[train_idxs])
 
-    np.save("datasets/community/test_A.npy", A[test_idxs])
-    np.save("datasets/community/test_E.npy", E[test_idxs])
-    np.save("datasets/community/test_V.npy", V[test_idxs])
+    np.save("datasets/community_split/test_A.npy", A[test_idxs])
+    np.save("datasets/community_split/test_E.npy", E[test_idxs])
+    np.save("datasets/community_split/test_V.npy", V[test_idxs])
 
-    np.save("datasets/community/mu.npy", mu)
-    np.save("datasets/community/sigma.npy", sigma)
+    np.save("datasets/community_split/mu.npy", mu)
+    np.save("datasets/community_split/sigma.npy", sigma)

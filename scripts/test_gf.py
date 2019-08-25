@@ -45,13 +45,23 @@ def plot_prior_histograms(model, dataloader):
     z = np.vstack(z)
     x_axis = np.linspace(-4, 4, 200)
     embedding_dim = z.shape[-1]
-    plt.figure(figsize = (embedding_dim, 4))
+    plt.figure(figsize = (embedding_dim, 6))
     for i in range(embedding_dim):
-        plt.subplot(2, embedding_dim // 2, i  + 1)
+        plt.subplot(3, embedding_dim // 2, i + 1)
         density = sp.stats.gaussian_kde(z[:, i], "silverman")
         plt.plot(x_axis, density(x_axis))
         plt.fill_between(x_axis, 0, density(x_axis), alpha=0.2)
         plt.title(f"Dimension {i + 1}")
+    plt.subplot(3, embedding_dim // 2, embedding_dim + 1)
+    density = sp.stats.gaussian_kde(z.flatten(), "silverman")
+    plt.plot(x_axis, density(x_axis))
+    plt.fill_between(x_axis, 0, density(x_axis), alpha=0.2)
+    plt.title("Aggregate")
+    plt.subplot(3, embedding_dim // 2, embedding_dim + 2)
+    density = sp.stats.norm.pdf(x_axis)
+    plt.plot(x_axis, density)
+    plt.fill_between(x_axis, 0, density, alpha=0.2)
+    plt.title("Ideal")
     plt.tight_layout()
 
 
@@ -151,15 +161,18 @@ if __name__ == "__main__":
     argparser = ArgumentParser()
     argparser.add_argument("--dataset", default="community")
     argparser.add_argument("--batch-size", default=128, type=int)
+    argparser.add_argument("--split", default="test")
     args = argparser.parse_args()
 
     ckpts_dir = f"./ckpts/{args.dataset}/gf"
     args_json = open(f"{ckpts_dir}/args.json", "r")
     args_json = json.loads(args_json.read())
 
-    E = np.load(f"datasets/{args.dataset}/test_E.npy", allow_pickle = True)
-    A = np.load(f"datasets/{args.dataset}/test_A.npy", allow_pickle = True)
-    V = np.load(f"datasets/{args.dataset}/test_V.npy")
+    E = np.load(f"datasets/{args.dataset}/{args.split}_E.npy", 
+                allow_pickle = True)
+    A = np.load(f"datasets/{args.dataset}/{args.split}_A.npy", 
+                allow_pickle = True)
+    V = np.load(f"datasets/{args.dataset}/{args.split}_V.npy")
     E = [e[:, :args_json["K"]] for e in E]
 
     model = GF(embedding_dim = args_json["K"], 
@@ -205,12 +218,12 @@ if __name__ == "__main__":
     stats["edge_bpd_mean"] = float(np.mean(edge_bpd))
     stats["edge_bpd_stderr"] = float(np.std(edge_bpd) / len(edge_bpd) ** 0.5)
 
-    with open(f"{ckpts_dir}/stats.json", "w") as statsfile:
+    with open(f"{ckpts_dir}/stats_{args.split}.json", "w") as statsfile:
         statsfile.write(json.dumps(stats))
 
     # == create the figures using entire dataset
     plot_prior_histograms(model, dataloader)
-    plt.savefig(f"{ckpts_dir}/prior.png")
+    plt.savefig(f"{ckpts_dir}/prior_{args.split}.png")
 
     # == create the figures using subsamples
     idx = np.random.choice(len(E) - 8)
