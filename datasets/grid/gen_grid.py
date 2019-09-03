@@ -15,9 +15,12 @@ def gen_graphs(sizes, p_intra=0.7, p_inter=0.01):
     for V in tqdm(sizes):
         G = nx.grid_2d_graph(int(round(V ** 0.5)), int(round(V ** 0.5)))
         G = nx.to_numpy_array(G)
-        P = np.eye(int(round(V ** 0.5)) ** 2) 
-        np.random.shuffle(P)
-        A.append(P.T @ G @ P)
+        # due to symmetries in grid dataset permutations cause issues
+        # this arises from numerical imprecision in eigenvector calculation
+        #P = np.eye(int(round(V ** 0.5)) ** 2)  
+        #np.random.shuffle(P)
+        #A.append(P.T @ G @ P)
+        A.append(G)
     return np.array(A)
 
 

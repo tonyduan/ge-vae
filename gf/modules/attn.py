@@ -29,7 +29,7 @@ class MAB(nn.Module):
         if mask is not None:
             mask = mask.unsqueeze(1)
             mask = mask.repeat(self.num_heads, Q.shape[1], 1)
-            A_logits.masked_fill_(mask, -100.0)
+            A_logits.masked_fill_(~mask, -100.0)
         A = torch.softmax(A_logits, -1)
         O = torch.cat((Q_ + A @ V_).split(B,), dim=2)
         O = O + torch.relu(self.fc_O(O))

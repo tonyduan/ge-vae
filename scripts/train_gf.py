@@ -69,7 +69,7 @@ if __name__ == "__main__":
 
         optimizer.zero_grad()
         _, node_lp, edge_lp = model.forward(E_batch, A_batch, V_batch)
-        loss = -torch.mean(node_lp + edge_lp)
+        loss = -torch.mean((node_lp + edge_lp) / (V_batch * (V_batch - 1)))
         loss.backward()
         loss_curve["node_lp"].append(node_lp.data.cpu().numpy().mean())
         loss_curve["edge_lp"].append(edge_lp.data.cpu().numpy().mean())

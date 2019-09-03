@@ -27,7 +27,7 @@ def compute_unnormalized_laplacian_eigenmaps(A, eps=1e-2):
     D = np.diag(np.sum(A, axis=1))
     L = D - A
     W, E = np.linalg.eigh(L)
-    E = E @ np.diag(np.sign(np.sum(E, axis = 0))) 
+    E = E @ np.diag(np.sign(W))
     return np.real(E)
 
 def compute_normalized_laplacian_eigenmaps(A, eps=1e-2):

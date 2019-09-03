@@ -14,8 +14,8 @@ from gf.utils import *
 from gf.eval.stats import *
 from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
-mpl.use("agg")
 from matplotlib import pyplot as plt
+mpl.use("agg")
 
 
 def get_largest_cc(A):
@@ -35,7 +35,6 @@ def plot_sample_graphs(model, dataloader):
         G = nx.from_numpy_matrix(G)
         nx.draw(G, node_color = "black", node_size = 20)
     plt.tight_layout()
-
 
 def plot_prior_histograms(model, dataloader):
     z = []
@@ -79,8 +78,7 @@ def plot_interpolations(model, dataloader):
         z = np.cos(x) * (np.cos(y) * z_batch[0] + np.sin(y) * z_batch[1]) + \
             np.sin(x) * (np.cos(y) * z_batch[2] + np.sin(y) * z_batch[3])
         e = model.backward(z.unsqueeze(0), n_nodes)
-        a_hat = model.ep.forward(e, n_nodes)[0]
-        a_hat = torch.sigmoid(a_hat).data.numpy()
+        a_hat = model.predict_a_from_e(e, n_nodes).data.numpy()[0]
         z = np.random.rand(*a_hat.shape)
         a_sample = (np.tril(z) + np.tril(z, -1).T < a_hat).astype(int)
         cc = get_largest_cc(a_sample)
@@ -105,29 +103,38 @@ def plot_generations(n_batch, n_nodes):
 def plot_gen_embeddings(model, dataloader, n_batch, n_nodes):
     z_sampled, v_sampled = model.sample_prior(n_batch, n_nodes)
     e_sampled = model.backward(z_sampled, v_sampled)
-    plt.figure(figsize = (n_batch, 8))
+    v_sampled = v_sampled.data.numpy().astype(int)
+    plt.figure(figsize = (n_batch * 3, 8))
     for i in range(n_batch):
-        plt.subplot(4, n_batch // 2, i + 1)
-        plt.imshow(e_sampled[i].data.numpy())
+        e_current = e_sampled[i].data.numpy()[:v_sampled[i], :]
+        plt.subplot(4, n_batch, i + 1)
+        plt.imshow(e_current)
+        plt.subplot(4, n_batch, i + n_batch + 1)
+        plt.scatter(e_current[:, 0],  e_current[:, 1], color = "black")
     x_batch, _, v_batch = next(iter(dataloader))
+    v_batch = v_batch.data.numpy().astype(int)
     for i in range(n_batch):
-        plt.subplot(4, n_batch // 2, i + n_batch + 1)
-        plt.imshow(x_batch[i].data.numpy())
+        x_current = x_batch[i].data.numpy()[:v_batch[i], :]
+        plt.subplot(4, n_batch, i + 2 * n_batch + 1)
+        plt.imshow(x_current)
+        plt.subplot(4, n_batch, i + 3 * n_batch + 1)
+        plt.scatter(x_current[:,  0], x_current[:, 1], color = "black")
     plt.tight_layout()
 
 def plot_reconstructions(model, dataloader):
     x_batch, _, v_batch = next(iter(dataloader))
     a_hat = model.predict_a_from_e(x_batch, v_batch).data.numpy()
     n_graphs = len(x_batch)
+    v_batch = v_batch.data.numpy().astype(int)
     plt.figure(figsize=(n_graphs, 4))
     for i in range(n_graphs):
         z = np.random.rand(*a_hat[i].shape)
         a_sample = (np.tril(z) + np.tril(z, -1).T < a_hat[i]).astype(int)
+        a_sample = a_sample[:v_batch[i], :v_batch[i]]
         cc = get_largest_cc(a_sample)
         plt.subplot(2, n_graphs // 2, i + 1)
         nx.draw(nx.from_numpy_array(cc), node_color = "black", node_size = 20)
     plt.tight_layout()
-
 
 def plot_loss_curve(loss_curve):
     plt.figure(figsize=(8, 5))
@@ -140,18 +147,16 @@ def plot_loss_curve(loss_curve):
     plt.legend()
     plt.title("Training loss")
 
-
-def compute_test_bpd(model, dataloader):
-    """
-    Compute the test BPD per embedding dimension and per edge.
-    """
-    node_bpds, edge_bpds = [], []
+def compute_test_bpd(model, dataloader, n_monte_carlo = 128):
+    log_liks = [[]] * n_monte_carlo
     for E_batch, A_batch, V_batch in tqdm(iter(dataloader)):
-        _, node_lp, edge_lp = model.forward(E_batch, A_batch, V_batch)
-        node_bpds += [-node_lp.data.numpy()]
-        edge_bpds += [-edge_lp.data.numpy()]
-    return np.concatenate(node_bpds), np.concatenate(edge_bpds)
-
+        cnts = V_batch.data.numpy() * (V_batch.data.numpy() - 1)
+        for i in range(n_monte_carlo):
+            _, node_lp, edge_lp = model.forward(E_batch, A_batch, V_batch)
+            log_liks[i] += [(node_lp.data.numpy()+edge_lp.data.numpy()) / cnts]
+    log_liks = [np.concatenate(lst) for lst in log_liks]
+    log_liks = -np.log(np.mean(np.exp(np.array(log_liks)), axis = 0))
+    return log_liks
 
 def generate_for_test_set(model, dataloader, batch_size = 128):
     gen_graphs = []
@@ -175,6 +180,7 @@ if __name__ == "__main__":
     argparser.add_argument("--dataset", default="community")
     argparser.add_argument("--batch-size", default=128, type=int)
     argparser.add_argument("--split", default="test")
+    argparser.add_argument("--n-monte-carlo", default = 128, type = int)
     args = argparser.parse_args()
 
     ckpts_dir = f"./ckpts/{args.dataset}/gf"
@@ -223,15 +229,11 @@ if __name__ == "__main__":
     print(stats["orbit"])
 
     # == calculate log-likelihood statistics
-    node_bpd, edge_bpd = compute_test_bpd(model, dataloader)
+    bpds = compute_test_bpd(model, dataloader, args.n_monte_carlo)
     print("== Embeddings BPD [bits]")
-    print(f"{np.mean(node_bpd)} \pm {np.std(node_bpd) / len(node_bpd) ** 0.5}")
-    print("== Edges BPD [bits]")
-    print(f"{np.mean(edge_bpd)} \pm {np.std(edge_bpd) / len(edge_bpd) ** 0.5}")
-    stats["node_bpd_mean"] = float(np.mean(node_bpd))
-    stats["node_bpd_stderr"] = float(np.std(node_bpd) / len(node_bpd) ** 0.5)
-    stats["edge_bpd_mean"] = float(np.mean(edge_bpd))
-    stats["edge_bpd_stderr"] = float(np.std(edge_bpd) / len(edge_bpd) ** 0.5)
+    print(f"{np.mean(bpds)} \pm {np.std(bpds) / len(bpds) ** 0.5}")
+    stats["bpd_mean"] = float(np.mean(bpds))
+    stats["bpd_stderr"] = float(np.std(bpds) / len(bpds) ** 0.5)
 
     with open(f"{ckpts_dir}/stats_{args.split}.json", "w") as statsfile:
         statsfile.write(json.dumps(stats))
@@ -252,7 +254,7 @@ if __name__ == "__main__":
     plot_reconstructions(model, dataloader)
     plt.savefig(f"{ckpts_dir}/reconstructions.png")
 
-    plot_gen_embeddings(model, dataloader, n_batch = 8, 
+    plot_gen_embeddings(model, dataloader, n_batch = 4, 
                         n_nodes = int(np.round(np.mean(V))))
     plt.savefig(f"{ckpts_dir}/embeddings.png")
 
@@ -261,13 +263,15 @@ if __name__ == "__main__":
     plt.savefig(f"{ckpts_dir}/generations.png")
 
     # == create the figures using subsamples of same length
-    mean_n_nodes = int(np.round(np.mean(V)))
+    mean_n_nodes = int(np.round(np.median(V)))
     E_sub = list(filter(lambda e: len(e) == mean_n_nodes, E))[:4]
     A_sub = list(filter(lambda a: len(a) == mean_n_nodes, A))[:4]
     if len(A_sub) == 4:
         dataset = GraphDataset(E_sub, A_sub, device = "cpu")
         dataloader = DataLoader(dataset, batch_size = 128, shuffle = True,
                                 collate_fn = custom_collate_fn)
+        plot_reconstructions(model, dataloader)
+        plt.savefig(f"{ckpts_dir}/reconstructions.png")
         plot_interpolations(model, dataloader)
         plt.savefig(f"{ckpts_dir}/interpolations.png")
 

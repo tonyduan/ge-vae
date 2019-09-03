@@ -154,8 +154,8 @@ def compute_fgsd_embeddings(A):
     #U, S, V = np.linalg.svd(np.eye(len(A)) - A)
     #V = np.diag(np.sign(np.sum(U, axis = 0))) @ V
     S, V = np.linalg.eigh(np.diag(np.sum(A, axis = 0)) - A)
-    V = np.diag(np.sign(S)) @ V
-    D = np.sum(A, axis=1)
+    V = V @ np.diag(np.sign(S)) 
+    #D = np.sum(A, axis=1)
     E = V[:, 1:]
     #E = np.c_[D, np.ones_like(D) * len(A), V[:, 1:]]
     return E

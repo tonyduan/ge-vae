@@ -177,7 +177,7 @@ class GF(nn.Module):
         mask = construct_embedding_mask(v).unsqueeze(2)
         x = x_distn.rsample()
         rsample_logprob  = torch.sum(x_distn.log_prob(x) * mask, dim = (1, 2)) 
-        rsample_logprob = rsample_logprob / v / self.embedding_dim
+        rsample_logprob = rsample_logprob # / v / self.embedding_dim
         ep_logprob = self.ep.log_prob_per_edge(x, a, v)
         for flow in self.flows:
             x, LD = flow.forward(x, v)
@@ -188,7 +188,7 @@ class GF(nn.Module):
         z, prior_logprob = x, prior.log_prob(x.view(batch_size, -1))
         prior_logprob = prior_logprob.reshape((batch_size, max_n_nodes, -1))
         prior_logprob = torch.sum(prior_logprob * mask, dim = (1, 2))
-        node_logprob = (prior_logprob + log_det) / v / self.embedding_dim 
+        node_logprob = (prior_logprob + log_det) #/ v / self.embedding_dim 
         const = torch.log(torch.tensor(2.0))
         return z, node_logprob / const - rsample_logprob / const, ep_logprob / const
 

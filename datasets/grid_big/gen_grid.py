@@ -39,7 +39,7 @@ if __name__ == "__main__":
     E = np.array([compute_fgsd_embeddings(a) for a in A])
 
     K = min([e.shape[1] for e in E])
-    E = [e[:, :K] for e in E]
+    E = np.array([e[:, :K] for e in E])
 
     train_idxs = np.random.choice(len(V), args.train_N, replace = False)
     test_idxs = np.setdiff1d(np.arange(len(V)), train_idxs)
@@ -51,3 +51,4 @@ if __name__ == "__main__":
     np.save("datasets/grid_big/test_A.npy", A[test_idxs])
     np.save("datasets/grid_big/test_E.npy", E[test_idxs])
     np.save("datasets/grid_big/test_V.npy", V[test_idxs])
+
