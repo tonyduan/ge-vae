@@ -151,10 +151,13 @@ def compute_fgsd_embeddings(A):
     -------
     E: (n_nodes x n_nodes) LLE embeddings
     """
-    U, S, V = np.linalg.svd(np.eye(len(A)) - A)
-    V = np.diag(np.sign(np.sum(U, axis = 0))) @ V
+    #U, S, V = np.linalg.svd(np.eye(len(A)) - A)
+    #V = np.diag(np.sign(np.sum(U, axis = 0))) @ V
+    S, V = np.linalg.eigh(np.diag(np.sum(A, axis = 0)) - A)
+    V = np.diag(np.sign(S)) @ V
     D = np.sum(A, axis=1)
-    E = np.c_[D, np.ones_like(D) * len(A), V.T]
+    E = V[:, 1:]
+    #E = np.c_[D, np.ones_like(D) * len(A), V[:, 1:]]
     return E
 
 

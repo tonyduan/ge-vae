@@ -102,6 +102,19 @@ def plot_generations(n_batch, n_nodes):
     plt.tight_layout()
 
 
+def plot_gen_embeddings(model, dataloader, n_batch, n_nodes):
+    z_sampled, v_sampled = model.sample_prior(n_batch, n_nodes)
+    e_sampled = model.backward(z_sampled, v_sampled)
+    plt.figure(figsize = (n_batch, 8))
+    for i in range(n_batch):
+        plt.subplot(4, n_batch // 2, i + 1)
+        plt.imshow(e_sampled[i].data.numpy())
+    x_batch, _, v_batch = next(iter(dataloader))
+    for i in range(n_batch):
+        plt.subplot(4, n_batch // 2, i + n_batch + 1)
+        plt.imshow(x_batch[i].data.numpy())
+    plt.tight_layout()
+
 def plot_reconstructions(model, dataloader):
     x_batch, _, v_batch = next(iter(dataloader))
     a_hat = model.predict_a_from_e(x_batch, v_batch).data.numpy()
@@ -175,8 +188,10 @@ if __name__ == "__main__":
     V = np.load(f"datasets/{args.dataset}/{args.split}_V.npy")
     E = [e[:, :args_json["K"]] for e in E]
 
-    model = GF(embedding_dim = args_json["K"], 
-               num_flows = args_json["n_flows"],  device = "cpu")
+    model = GF(embedding_dim = args_json["K"],
+               num_flows = args_json["n_flows"],  
+               noise_lvl = args_json["noise_lvl"],
+               device = "cpu")
     model.load_state_dict(torch.load(f"{ckpts_dir}/weights.torch"))
     model = model.eval()
 
@@ -197,15 +212,15 @@ if __name__ == "__main__":
         A[i][np.arange(len(A[i])), np.arange(len(A[i]))] = 0
     gen = [nx.from_numpy_array(g) for g in gen_graphs]
     ref = [nx.from_numpy_array(a) for a in A]
-    print("== Orbit")
-    stats["orbit"] = orbit_stats(ref, gen)
-    print(stats["orbit"])
     print("== Degree")
     stats["degree"] = degree_stats(ref, gen)
     print(stats["degree"])
     print("== Cluster")
     stats["cluster"] = cluster_stats(ref, gen)
     print(stats["cluster"])
+    print("== Orbit")
+    stats["orbit"] = orbit_stats(ref, gen)
+    print(stats["orbit"])
 
     # == calculate log-likelihood statistics
     node_bpd, edge_bpd = compute_test_bpd(model, dataloader)
@@ -236,6 +251,10 @@ if __name__ == "__main__":
 
     plot_reconstructions(model, dataloader)
     plt.savefig(f"{ckpts_dir}/reconstructions.png")
+
+    plot_gen_embeddings(model, dataloader, n_batch = 8, 
+                        n_nodes = int(np.round(np.mean(V))))
+    plt.savefig(f"{ckpts_dir}/embeddings.png")
 
     # == create the figures using generated data
     plot_generations(n_batch = 8, n_nodes = int(np.round(np.mean(V))))

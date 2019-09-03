@@ -77,10 +77,8 @@ class GFLayerNSF(nn.Module):
         self.device = device
         self.K = K
         self.B = B
-#        self.f1 = ISAB(embedding_dim // 2, hidden_dim, 1, 16)
-#        self.f2 = ISAB(embedding_dim // 2, hidden_dim, 1, 16)
-        self.f1 = ISABStack(1, embedding_dim // 2, hidden_dim, 1, 16)
-        self.f2 = ISABStack(1, embedding_dim // 2, hidden_dim, 1, 16)
+        self.f1 = ISABStack(4, embedding_dim // 2, hidden_dim, 1, 16)
+        self.f2 = ISABStack(4, embedding_dim // 2, hidden_dim, 1, 16)
         self.base_network = base_network(
             hidden_dim, (3 * K - 1) * embedding_dim // 2, hidden_dim, device)
         self.conv = OneByOneConv(embedding_dim, device)
@@ -144,15 +142,14 @@ class GFLayerNSF(nn.Module):
 
 class GF(nn.Module):
 
-    def __init__(self, embedding_dim, num_flows, device):
+    def __init__(self, embedding_dim, num_flows, noise_lvl, device):
         super().__init__()
         self.embedding_dim = embedding_dim
-        self.flows_L = nn.ModuleList([GFLayerNSF(embedding_dim, device) \
-                                      for _ in range(2)])
-        self.flows_Z = nn.ModuleList([GFLayerNSF(embedding_dim, device) \
-                                      for _ in range(num_flows)])
-        self.ep = EdgePredictor(embedding_dim, device)
+        self.flows = nn.ModuleList([GFLayerNSF(embedding_dim, device) \
+                                    for _ in range(num_flows)])
         self.final_actnorm = ActNorm(embedding_dim, device)
+        self.noise_lvl = noise_lvl
+        self.ep = EdgePredictor(embedding_dim, device)
         self.prior_gen = lambda n_nodes: \
             Normal(torch.zeros(embedding_dim * n_nodes, device = self.device),
                    torch.ones(embedding_dim * n_nodes, device = self.device))
@@ -176,11 +173,13 @@ class GF(nn.Module):
         """
         batch_size, max_n_nodes = x.shape[0], x.shape[1]
         log_det = torch.zeros(batch_size, device=self.device)
-        for flow in self.flows_L:
-            x, LD = flow.forward(x, v)
-            log_det += LD
+        x_distn = Normal(loc = x, scale = self.noise_lvl)
+        mask = construct_embedding_mask(v).unsqueeze(2)
+        x = x_distn.rsample()
+        rsample_logprob  = torch.sum(x_distn.log_prob(x) * mask, dim = (1, 2)) 
+        rsample_logprob = rsample_logprob / v / self.embedding_dim
         ep_logprob = self.ep.log_prob_per_edge(x, a, v)
-        for flow in self.flows_Z:
+        for flow in self.flows:
             x, LD = flow.forward(x, v)
             log_det += LD
         x, LD = self.final_actnorm(x, v)
@@ -188,21 +187,17 @@ class GF(nn.Module):
         prior = self.prior_gen(max_n_nodes)
         z, prior_logprob = x, prior.log_prob(x.view(batch_size, -1))
         prior_logprob = prior_logprob.reshape((batch_size, max_n_nodes, -1))
-        mask = construct_embedding_mask(v)
-        prior_logprob = torch.sum(prior_logprob * mask.unsqueeze(2), dim = (1, 2))
+        prior_logprob = torch.sum(prior_logprob * mask, dim = (1, 2))
         node_logprob = (prior_logprob + log_det) / v / self.embedding_dim 
         const = torch.log(torch.tensor(2.0))
-        return z, node_logprob / const, ep_logprob / const
+        return z, node_logprob / const - rsample_logprob / const, ep_logprob / const
 
     def predict_a_from_e(self, X, V):
-        batch_size, n_nodes = X.shape[0], X.shape[1]
-        for flow in self.flows_L:
-            X,  _ = flow.forward(X, V)
         return Bernoulli(logits = self.ep.forward(X, V)).probs
 
     def backward(self, z, v):
         z, _ = self.final_actnorm.backward(z, v)
-        for flow in self.flows_Z[::-1]:
+        for flow in self.flows[::-1]:
             z, _ = flow.backward(z, v)
         return z
 

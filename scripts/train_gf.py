@@ -2,13 +2,14 @@ import logging
 import json
 import torch
 import torch.nn as nn
-import torch.optim as optim
 import numpy as np
 import pandas as pd
 import networkx as nx
 from argparse import ArgumentParser
 from collections import defaultdict
 from torch.utils.data.dataloader import DataLoader
+from torch.optim import Adam
+from torch.optim.lr_scheduler import CosineAnnealingLR
 from gf.models.gf import GF
 from gf.datasets import *
 from tqdm import tqdm
@@ -27,9 +28,10 @@ if __name__ == "__main__":
     argparser.add_argument("--batch-size", default=256, type=int)
     argparser.add_argument("--print-every", default=1, type=str)
     argparser.add_argument("--load", action="store_true")
+    argparser.add_argument("--noise-lvl", default = 0.025, type = float)
     args = argparser.parse_args()
 
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level = logging.DEBUG)
     logger = logging.getLogger(__name__)
 
     ckpts_dir = f"./ckpts/{args.dataset}/gf/"
@@ -45,14 +47,13 @@ if __name__ == "__main__":
                             shuffle = True, collate_fn = custom_collate_fn)
     iterator = iter(dataloader)
 
-    model = GF(args.K, args.n_flows, args.device)
+    model = GF(args.K, args.n_flows, args.noise_lvl, args.device)
     if args.load:
         model.load_state_dict(torch.load(f"{ckpts_dir}/weights.torch"))
 
     model = model.to(args.device).train()
-    optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay = 1e-5)
-    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, 
-                                                     args.iterations)
+    optimizer = Adam(model.parameters(), lr = args.lr, weight_decay = 1e-5)
+    scheduler = CosineAnnealingLR(optimizer,  args.iterations)
 
     loss_curve = defaultdict(list)
     epoch_no = 1

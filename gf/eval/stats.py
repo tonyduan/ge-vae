@@ -80,12 +80,6 @@ def cluster_stats(graph_ref_list, graph_pred_list, bins=100, is_parallel=False):
             for clustering_hist in executor.map(clustering_worker, 
                     [(G, bins) for G in graph_pred_list_remove_empty]):
                 sample_pred.append(clustering_hist)
-        # check non-zero elements in hist
-        #total = 0
-        #for i in range(len(sample_pred)):
-        #    nz = np.nonzero(sample_pred[i])[0].shape[0]
-        #    total += nz
-        #print(total)
     else:
         for i in range(len(graph_ref_list)):
             clustering_coeffs_list = list(nx.clustering(graph_ref_list[i]).values())
@@ -126,26 +120,25 @@ def edge_list_reindexed(G):
     return edges
 
 def orca(graph):
-    tmp_fname = './gf/eval/orca/tmp.txt'
+    tmp_fname = f'./gf/eval/orca/tmp_{int(time.time() * 10)}.txt'
     f = open(tmp_fname, 'w')
     f.write(str(graph.number_of_nodes()) + ' ' + str(graph.number_of_edges()) + '\n')
     for (u, v) in edge_list_reindexed(graph):
         f.write(str(u) + ' ' + str(v) + '\n')
     f.close()
 
-    output = subprocess.check_output(['./gf/eval/orca/orca', 'node', '4', './gf/eval/orca/tmp.txt', 'std'])
+    output = subprocess.check_output([
+        './gf/eval/orca/orca', 'node', '4', tmp_fname, 'std'])
     output = output.decode('utf8').strip()
     
     idx = output.find(COUNT_START_STR) + len(COUNT_START_STR)
     output = output[idx:]
-    node_orbit_counts = np.array([list(map(int, node_cnts.strip().split(' ') ))
+    node_orbit_counts = np.array([list(map(int, node_cnts.strip().split(' ')))
           for node_cnts in output.strip('\n').split('\n')])
-
     try:
         os.remove(tmp_fname)
     except OSError:
         pass
-
     return node_orbit_counts
     
 

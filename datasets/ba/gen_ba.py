@@ -6,7 +6,7 @@ from gf.utils import *
 from tqdm import tqdm
 
 
-def gen_graphs(sizes, p_intra=0.7, p_inter=0.01):
+def gen_graphs(sizes):
     """
     Generate community graphs.
     """
@@ -26,7 +26,6 @@ if __name__ == "__main__":
     argparser.add_argument("--train-N", default=2500, type=int)
     argparser.add_argument("--test-N", default=1000, type=int)
     argparser.add_argument("--seed", default=123, type=int)
-    argparser.add_argument("--noise", default=0.025, type=float)
     args = argparser.parse_args()
 
     np.random.seed(args.seed)
@@ -36,12 +35,8 @@ if __name__ == "__main__":
     V = np.array([len(a) for a in A])
     E = np.array([compute_fgsd_embeddings(a) for a in A])
 
-    E = [e + args.noise * np.random.randn(*e.shape) for e in E]
     K = min([e.shape[1] for e in E])
-    E = [e[:, :K] for e in E]
-    mu = np.mean(np.vstack(E), axis = 0)
-    sigma = np.std(np.vstack(E), axis = 0)
-    E = np.array([(e - mu) / sigma for e in E])
+    E = np.array([e[:, :K] for e in E])
 
     train_idxs = np.random.choice(len(V), args.train_N, replace = False)
     test_idxs = np.setdiff1d(np.arange(len(V)), train_idxs)
@@ -53,6 +48,3 @@ if __name__ == "__main__":
     np.save("datasets/ba/test_A.npy", A[test_idxs])
     np.save("datasets/ba/test_E.npy", E[test_idxs])
     np.save("datasets/ba/test_V.npy", V[test_idxs])
-
-    np.save("datasets/ba/mu.npy", mu)
-    np.save("datasets/ba/sigma.npy", sigma)
