@@ -13,8 +13,30 @@ def gen_graphs(sizes, p_community = 0.5, p_intra=0.7, p_inter=0.01):
     A = []
     for V in tqdm(sizes):
         if np.random.rand() < p_community:
-            graph = nx.gnp_random_graph(V, p_intra)
+            comms = [nx.gnp_random_graph(V // 4, p_intra),
+                     nx.gnp_random_graph(V // 4, p_intra),
+                     nx.gnp_random_graph(V // 4, p_intra),
+                     nx.gnp_random_graph(V - 3 * (V // 4), p_intra)]
+            graph = nx.disjoint_union_all(comms)
             graph = nx.to_numpy_array(graph)
+            block1 = np.arange(V // 4)
+            block2 = np.arange(V // 4, 2 * (V // 4))
+            block3 = np.arange(2 * (V // 4), 3 * (V // 4))
+            block4 = np.arange(3 * (V // 4), V)
+            edges = [
+                list(itertools.product(block1, block2)),
+                list(itertools.product(block1, block3)),
+                list(itertools.product(block1, block4)),
+                list(itertools.product(block2, block3)),
+                list(itertools.product(block2, block4)),
+                list(itertools.product(block3, block4)),
+            ]
+            for (i, j) in (edges[0][0], edges[1][1], edges[4][2]):
+                graph[i,j], graph[j,i] = 1, 1
+            remaining = list(itertools.chain(edges))
+            np.random.shuffle(remaining)
+            for (i, j) in remaining[:int(p_inter * V)]:
+                graph[i,j], graph[j,i] = 1, 1
         else:
             comms = [nx.gnp_random_graph(V // 2, p_intra),
                      nx.gnp_random_graph((V + 1) // 2, p_intra)]
@@ -26,7 +48,7 @@ def gen_graphs(sizes, p_community = 0.5, p_intra=0.7, p_inter=0.01):
             np.random.shuffle(remaining)
             for (i, j) in remaining[:int(p_inter * V + 1)]:
                 graph[i,j], graph[j,i] = 1, 1
-            P = np.eye(V)
+        P = np.eye(V)
         np.random.shuffle(P)
         graph = P.T @ graph @ P
         if nx.number_connected_components(nx.from_numpy_array(graph)) > 1:
@@ -46,7 +68,7 @@ if __name__ == "__main__":
 
     np.random.seed(args.seed)
 
-    V = np.random.choice(np.arange(19, 20), size = args.train_N + args.test_N)
+    V = np.random.choice(np.arange(50, 51), size = args.train_N + args.test_N)
     A = gen_graphs(V)
     V = np.array([len(a) for a in A])
     E = np.array([compute_fgsd_embeddings(a) for a in A])
