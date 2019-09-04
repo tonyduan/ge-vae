@@ -1,3 +1,4 @@
+# -*- coding: future_fstrings -*-
 """
 This file contains utility functions for working with graphs.
 """
@@ -42,7 +43,7 @@ def construct_adjacency_mask(V):
     """
     batch_size = len(V)
     max_n_nodes = torch.max(V).int()
-    mask = torch.zeros(batch_size, max_n_nodes, max_n_nodes, 
+    mask = torch.zeros(batch_size, max_n_nodes, max_n_nodes,
                        device = str(V.device))
     for i, cnt in enumerate(V):
         mask[i, :cnt.int(), :cnt.int()] = 1
@@ -128,7 +129,7 @@ def compute_fgsd_embeddings_old(A, eps=1e-2):
         V[:,0] = -V[:,0]
     if np.std(V[:,0] > 0):
         breakpoint()
-    W[W < eps] = 1 / len(A) 
+    W[W < eps] = 1 / len(A)
     W[W > eps] = 1 / W[W > eps]
     E = V @ np.diag(np.sqrt(W))
     E = np.c_[D, np.ones_like(D) * len(A), E]
@@ -154,7 +155,7 @@ def compute_fgsd_embeddings(A):
     #U, S, V = np.linalg.svd(np.eye(len(A)) - A)
     #V = np.diag(np.sign(np.sum(U, axis = 0))) @ V
     S, V = np.linalg.eigh(np.diag(np.sum(A, axis = 0)) - A)
-    V = V @ np.diag(np.sign(S)) 
+    V = V @ np.diag(np.sign(S))
     #D = np.sum(A, axis=1)
     E = V[:, 1:]
     #E = np.c_[D, np.ones_like(D) * len(A), V[:, 1:]]

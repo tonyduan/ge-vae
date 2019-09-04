@@ -1,3 +1,4 @@
+# -*- coding: future_fstrings -*-
 import logging
 import json
 import torch
@@ -43,7 +44,7 @@ if __name__ == "__main__":
     E = [e[:, :args.K] for e in E]
 
     dataset = GraphDataset(E, A, device = args.device)
-    dataloader = DataLoader(dataset, batch_size = args.batch_size, 
+    dataloader = DataLoader(dataset, batch_size = args.batch_size,
                             shuffle = True, collate_fn = custom_collate_fn)
     iterator = iter(dataloader)
 
@@ -78,16 +79,16 @@ if __name__ == "__main__":
 
         if i % args.print_every == 0:
             logger.info(f"Iter: {i}\t"
-                        f"Dataset: {args.dataset}\t" + 
-                        f"Node LP: {node_lp.mean().data:.2f}\t" + 
-                        f"Edge LP: {edge_lp.mean().data:.2f}\t" + 
-                        f"Epoch: {epoch_no}\t" + 
+                        f"Dataset: {args.dataset}\t" +
+                        f"Node LP: {node_lp.mean().data:.2f}\t" +
+                        f"Edge LP: {edge_lp.mean().data:.2f}\t" +
+                        f"Epoch: {epoch_no}\t" +
                         f"Batch size: {len(V_batch)}\t"
                         f"Max nodes: {len(A_batch[0])}")
 
     model = model.cpu()
     torch.save(model.state_dict(), f"{ckpts_dir}/weights.torch")
-    
+
     with open(f"{ckpts_dir}/args.json", "w") as argsfile:
         argsfile.write(json.dumps(args.__dict__))
 

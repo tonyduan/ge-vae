@@ -1,3 +1,4 @@
+# -*- coding: future_fstrings -*-
 import numpy as np
 import torch
 import json
@@ -187,22 +188,22 @@ if __name__ == "__main__":
     args_json = open(f"{ckpts_dir}/args.json", "r")
     args_json = json.loads(args_json.read())
 
-    E = np.load(f"datasets/{args.dataset}/{args.split}_E.npy", 
+    E = np.load(f"datasets/{args.dataset}/{args.split}_E.npy",
                 allow_pickle = True)
-    A = np.load(f"datasets/{args.dataset}/{args.split}_A.npy", 
+    A = np.load(f"datasets/{args.dataset}/{args.split}_A.npy",
                 allow_pickle = True)
     V = np.load(f"datasets/{args.dataset}/{args.split}_V.npy")
     E = [e[:, :args_json["K"]] for e in E]
 
     model = GF(embedding_dim = args_json["K"],
-               num_flows = args_json["n_flows"],  
+               num_flows = args_json["n_flows"],
                noise_lvl = args_json["noise_lvl"],
                device = "cpu")
     model.load_state_dict(torch.load(f"{ckpts_dir}/weights.torch"))
     model = model.eval()
 
     dataset = GraphDataset(E, A, device = "cpu")
-    dataloader = DataLoader(dataset, batch_size = 128, shuffle = True, 
+    dataloader = DataLoader(dataset, batch_size = 128, shuffle = True,
                             collate_fn = custom_collate_fn)
 
     # plot training statistics
@@ -254,7 +255,7 @@ if __name__ == "__main__":
     plot_reconstructions(model, dataloader)
     plt.savefig(f"{ckpts_dir}/reconstructions.png")
 
-    plot_gen_embeddings(model, dataloader, n_batch = 4, 
+    plot_gen_embeddings(model, dataloader, n_batch = 4,
                         n_nodes = int(np.round(np.mean(V))))
     plt.savefig(f"{ckpts_dir}/embeddings.png")
 
