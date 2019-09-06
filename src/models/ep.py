@@ -1,9 +1,9 @@
 import torch
 import torch.nn as nn
 from torch.distributions import Bernoulli
-from gf.modules.attn import MAB, PMA, SAB, ISAB, ISABStack 
-from gf.utils import *
-from gf.modules.mlp import *
+from src.modules.attn import MAB, PMA, SAB, ISAB, ISABStack 
+from src.utils import *
+from src.modules.mlp import *
 
 
 class EdgePredictor(nn.Module):

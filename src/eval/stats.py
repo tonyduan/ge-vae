@@ -7,7 +7,7 @@ import os
 import pickle as pkl
 import time
 import subprocess
-import gf.eval.mmd as mmd
+import src.eval.mmd as mmd
 import concurrent.futures
 from datetime import datetime
 from functools import partial
@@ -73,11 +73,11 @@ def cluster_stats(graph_ref_list, graph_pred_list, bins=100, is_parallel=False):
     prev = datetime.now()
     if is_parallel:
         with concurrent.futures.ProcessPoolExecutor() as executor:
-            for clustering_hist in executor.map(clustering_worker, 
+            for clustering_hist in executor.map(clustering_worker,
                     [(G, bins) for G in graph_ref_list]):
                 sample_ref.append(clustering_hist)
         with concurrent.futures.ProcessPoolExecutor() as executor:
-            for clustering_hist in executor.map(clustering_worker, 
+            for clustering_hist in executor.map(clustering_worker,
                     [(G, bins) for G in graph_pred_list_remove_empty]):
                 sample_pred.append(clustering_hist)
     else:
@@ -92,7 +92,7 @@ def cluster_stats(graph_ref_list, graph_pred_list, bins=100, is_parallel=False):
             hist, _ = np.histogram(
                     clustering_coeffs_list, bins=bins, range=(0.0, 1.0), density=False)
             sample_pred.append(hist)
-    
+
     mmd_dist = mmd.compute_mmd(sample_ref, sample_pred, kernel=mmd.gaussian_emd,
                                sigma=1.0/10, distance_scaling=bins)
     elapsed = datetime.now() - prev
@@ -120,7 +120,7 @@ def edge_list_reindexed(G):
     return edges
 
 def orca(graph):
-    tmp_fname = f'./gf/eval/orca/tmp_{int(time.time() * 10)}.txt'
+    tmp_fname = f'./src/eval/orca/tmp_{int(time.time() * 10)}.txt'
     f = open(tmp_fname, 'w')
     f.write(str(graph.number_of_nodes()) + ' ' + str(graph.number_of_edges()) + '\n')
     for (u, v) in edge_list_reindexed(graph):
@@ -128,9 +128,9 @@ def orca(graph):
     f.close()
 
     output = subprocess.check_output([
-        './gf/eval/orca/orca', 'node', '4', tmp_fname, 'std'])
+        './src/eval/orca/orca', 'node', '4', tmp_fname, 'std'])
     output = output.decode('utf8').strip()
-    
+
     idx = output.find(COUNT_START_STR) + len(COUNT_START_STR)
     output = output[idx:]
     node_orbit_counts = np.array([list(map(int, node_cnts.strip().split(' ')))
@@ -140,7 +140,7 @@ def orca(graph):
     except OSError:
         pass
     return node_orbit_counts
-    
+
 
 def motif_stats(graph_ref_list, graph_pred_list, motif_type='4cycle', ground_truth_match=None, bins=100):
     # graph motif counts (int for each graph)
@@ -190,7 +190,7 @@ def motif_stats(graph_ref_list, graph_pred_list, motif_type='4cycle', ground_tru
 def orbit_stats(graph_ref_list, graph_pred_list):
     total_counts_ref = []
     total_counts_pred = []
- 
+
     graph_pred_list_remove_empty = [G for G in graph_pred_list if not G.number_of_nodes() == 0]
 
     for G in graph_ref_list:

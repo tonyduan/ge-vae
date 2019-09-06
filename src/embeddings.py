@@ -2,8 +2,6 @@
 import itertools
 import numpy as np
 import cvxpy as cp
-import subprocess
-from gf.utils import *
 
 
 def compute_unnormalized_laplacian_eigenmaps(A, eps=1e-2):
@@ -107,28 +105,4 @@ def compute_structure_preserving_embedding(A, C = 100.0, verbose = False):
 
     L, Z = np.linalg.eigh(K.value)
     return Z
-
-def compute_node2vec_embedding(A, dim = 64, walk_length = 80):
-    """
-    Wrapper around Stanford's SNAP node2vec C++ implementation.
-
-    Parameters
-    ----------
-    A: (n_nodes x n_nodes) adjacency matrix
-
-    Returns
-    -------
-    E: (n_nodes x n_nodes) node2vec embeddings
-    """
-    write_adjacency_matrix_to_edge_list(A, "/tmp/node2vec_edge_list.graph")
-
-    args = ["./lib/node2vec",
-            "-i:/tmp/node2vec_edge_list.graph",
-            "-o:/tmp/node2vec_embeddings.emb",
-            "-v:no",
-            f"-d:{dim}",
-            f"-l:{walk_length}"]
-    subprocess.run(args, stdout = subprocess.DEVNULL)
-
-    return load_embedding_from_file("/tmp/node2vec_embeddings.emb")
 

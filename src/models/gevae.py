@@ -7,11 +7,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as init
 from torch.distributions import *
-from gf.modules.attn import *
-from gf.modules.splines import unconstrained_RQS
-from gf.modules.mlp import MLP
-from gf.models.ep import EdgePredictor
-from gf.utils import *
+from src.modules.attn import *
+from src.modules.splines import unconstrained_RQS
+from src.modules.mlp import MLP
+from src.models.ep import EdgePredictor
+from src.utils import *
 
 
 class ActNorm(nn.Module):
@@ -22,9 +22,9 @@ class ActNorm(nn.Module):
         super().__init__()
         self.dim = dim
         self.device = device
-        self.mu = nn.Parameter(torch.zeros(1, 1, dim, 
+        self.mu = nn.Parameter(torch.zeros(1, 1, dim,
             dtype = torch.float, device = self.device))
-        self.log_sigma = nn.Parameter(torch.zeros(1, 1, dim, 
+        self.log_sigma = nn.Parameter(torch.zeros(1, 1, dim,
             dtype = torch.float, device = self.device))
         self.initialized = False
 
@@ -66,12 +66,12 @@ class OneByOneConv(nn.Module):
         return x, log_det
 
 
-class GFLayerNSF(nn.Module):
+class NSFLayer(nn.Module):
     """
     Neural spline flow, coupling layer.
     """
     def __init__(self, embedding_dim, device,
-                 K = 5, B = 3, hidden_dim = 64, base_network = MLP):
+                 K = 128, B = 3, hidden_dim = 64, base_network = MLP):
         super().__init__()
         self.embedding_dim = embedding_dim
         self.device = device
@@ -140,12 +140,13 @@ class GFLayerNSF(nn.Module):
         x, ld2 = self.actnorm.backward(x, v)
         return x, log_det + ld1 + ld2
 
-class GF(nn.Module):
+class GEVAE(nn.Module):
 
-    def __init__(self, embedding_dim, num_flows, noise_lvl, device):
+    def __init__(self, embedding_dim, num_flows, noise_lvl, n_knots, device):
         super().__init__()
         self.embedding_dim = embedding_dim
-        self.flows = nn.ModuleList([GFLayerNSF(embedding_dim, device) \
+        self.n_knots = n_knots
+        self.flows = nn.ModuleList([NSFLayer(embedding_dim, device, n_knots)\
                                     for _ in range(num_flows)])
         self.final_actnorm = ActNorm(embedding_dim, device)
         self.noise_lvl = noise_lvl
@@ -176,7 +177,7 @@ class GF(nn.Module):
         x_distn = Normal(loc = x, scale = self.noise_lvl)
         mask = construct_embedding_mask(v).unsqueeze(2)
         x = x_distn.rsample()
-        rsample_logprob  = torch.sum(x_distn.log_prob(x) * mask, dim = (1, 2)) 
+        rsample_logprob  = torch.sum(x_distn.log_prob(x) * mask, dim = (1, 2))
         rsample_logprob = rsample_logprob # / v / self.embedding_dim
         ep_logprob = self.ep.log_prob_per_edge(x, a, v)
         for flow in self.flows:
@@ -188,9 +189,9 @@ class GF(nn.Module):
         z, prior_logprob = x, prior.log_prob(x.view(batch_size, -1))
         prior_logprob = prior_logprob.reshape((batch_size, max_n_nodes, -1))
         prior_logprob = torch.sum(prior_logprob * mask, dim = (1, 2))
-        node_logprob = (prior_logprob + log_det) #/ v / self.embedding_dim 
+        node_logprob = (prior_logprob + log_det) #/ v / self.embedding_dim
         const = torch.log(torch.tensor(2.0))
-        return z, node_logprob / const - rsample_logprob / const, ep_logprob / const
+        return z, (node_logprob - rsample_logprob) / const, ep_logprob / const
 
     def predict_a_from_e(self, X, V):
         return Bernoulli(logits = self.ep.forward(X, V)).probs

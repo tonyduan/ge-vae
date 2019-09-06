@@ -3,8 +3,7 @@ import networkx as nx
 import numpy as np
 from argparse import ArgumentParser
 from tqdm import tqdm
-from gf.utils import *
-from gf.embeddings import *
+from src.embeddings import compute_unnormalized_laplacian_eigenmaps
 
 
 def load_protein_data(min_num_nodes = 20, max_num_nodes = 1000):
@@ -45,7 +44,7 @@ if __name__ == "__main__":
     np.random.seed(args.seed)
 
     V, A = load_protein_data()
-    E = np.array([compute_fgsd_embeddings(a) for a in A])
+    E = np.array([compute_unnormalized_laplacian_eigenmaps(a) for a in A])
     K = min([e.shape[1] for e in E])
     E = np.array([e[:, :K] for e in E])
 

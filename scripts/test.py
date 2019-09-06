@@ -1,4 +1,3 @@
-# -*- coding: future_fstrings -*-
 import numpy as np
 import torch
 import json
@@ -8,11 +7,11 @@ import pandas as pd
 import scipy as sp
 import scipy.stats
 from argparse import ArgumentParser
-from gf.models.gf import GF
-from gf.models.ep import EdgePredictor
-from gf.datasets import *
-from gf.utils import *
-from gf.eval.stats import *
+from src.models.gevae import GEVAE
+from src.models.ep import EdgePredictor
+from src.datasets import *
+from src.utils import *
+from src.eval.stats import *
 from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
 from matplotlib import pyplot as plt
@@ -64,7 +63,6 @@ def plot_prior_histograms(model, dataloader):
     plt.title("Ideal")
     plt.tight_layout()
 
-
 def plot_interpolations(model, dataloader):
     x_batch, a_batch, v_batch = next(iter(dataloader))
     n_nodes = v_batch[0].unsqueeze(0)
@@ -83,9 +81,9 @@ def plot_interpolations(model, dataloader):
         z = np.random.rand(*a_hat.shape)
         a_sample = (np.tril(z) + np.tril(z, -1).T < a_hat).astype(int)
         cc = get_largest_cc(a_sample)
-        nx.draw(nx.from_numpy_array(cc), node_color = "black", node_size = 20)
+        nx.draw(nx.from_numpy_array(cc), node_color = "black",
+                node_size = 20, alpha = 0.5)
     plt.tight_layout()
-
 
 def plot_generations(n_batch, n_nodes):
     z_sampled, v_sampled = model.sample_prior(n_batch, n_nodes)
@@ -97,7 +95,8 @@ def plot_generations(n_batch, n_nodes):
         a_sample = (np.tril(z) + np.tril(z, -1).T < a_hat[i]).astype(int)
         cc = get_largest_cc(a_sample)
         plt.subplot(2, n_batch // 2, i + 1)
-        nx.draw(nx.from_numpy_array(cc), node_color = "black", node_size = 20)
+        nx.draw_kamada_kawai(nx.from_numpy_array(cc), node_color = "black", node_size = 20,
+                       alpha = 0.3)
     plt.tight_layout()
 
 
@@ -182,9 +181,10 @@ if __name__ == "__main__":
     argparser.add_argument("--batch-size", default=128, type=int)
     argparser.add_argument("--split", default="test")
     argparser.add_argument("--n-monte-carlo", default = 128, type = int)
+    argparser.add_argument("--no-calc-stats", action="store_true")
     args = argparser.parse_args()
 
-    ckpts_dir = f"./ckpts/{args.dataset}/gf"
+    ckpts_dir = f"./ckpts/{args.dataset}"
     args_json = open(f"{ckpts_dir}/args.json", "r")
     args_json = json.loads(args_json.read())
 
@@ -195,10 +195,11 @@ if __name__ == "__main__":
     V = np.load(f"datasets/{args.dataset}/{args.split}_V.npy")
     E = [e[:, :args_json["K"]] for e in E]
 
-    model = GF(embedding_dim = args_json["K"],
-               num_flows = args_json["n_flows"],
-               noise_lvl = args_json["noise_lvl"],
-               device = "cpu")
+    model = GEVAE(embedding_dim = args_json["K"],
+                  num_flows = args_json["n_flows"],
+                  noise_lvl = args_json["noise_lvl"],
+                  n_knots = args_json["n_knots"],
+                  device = "cpu")
     model.load_state_dict(torch.load(f"{ckpts_dir}/weights.torch"))
     model = model.eval()
 
@@ -206,40 +207,42 @@ if __name__ == "__main__":
     dataloader = DataLoader(dataset, batch_size = 128, shuffle = True,
                             collate_fn = custom_collate_fn)
 
-    # plot training statistics
-    plot_loss_curve(pd.read_csv(f"{ckpts_dir}/loss_curve.csv"))
-    plt.savefig(f"{ckpts_dir}/loss_curve.png")
+    if not args.no_calc_stats:
 
-    # compute generated graphs and compare quality
-    gen_graphs = generate_for_test_set(model, dataloader, args.batch_size)
-    np.save(f"{ckpts_dir}/gen_graphs.npy", gen_graphs)
-    stats = {}
+        # plot training statistics
+        plot_loss_curve(pd.read_csv(f"{ckpts_dir}/loss_curve.csv"))
+        plt.savefig(f"{ckpts_dir}/loss_curve.png")
 
-    for i in range(len(A)):
-        A[i][np.arange(len(A[i])), np.arange(len(A[i]))] = 0
-    gen = [nx.from_numpy_array(g) for g in gen_graphs]
-    ref = [nx.from_numpy_array(a) for a in A]
-    print("== Degree")
-    stats["degree"] = degree_stats(ref, gen)
-    print(stats["degree"])
-    print("== Cluster")
-    stats["cluster"] = cluster_stats(ref, gen)
-    print(stats["cluster"])
-    print("== Orbit")
-    stats["orbit"] = orbit_stats(ref, gen)
-    print(stats["orbit"])
+        # compute generated graphs and compare quality
+        gen_graphs = generate_for_test_set(model, dataloader, args.batch_size)
+        np.save(f"{ckpts_dir}/gen_graphs.npy", gen_graphs)
+        stats = {}
 
-    # == calculate log-likelihood statistics
-    bpds = compute_test_bpd(model, dataloader, args.n_monte_carlo)
-    print("== Embeddings BPD [bits]")
-    print(f"{np.mean(bpds)} \pm {np.std(bpds) / len(bpds) ** 0.5}")
-    stats["bpd_mean"] = float(np.mean(bpds))
-    stats["bpd_stderr"] = float(np.std(bpds) / len(bpds) ** 0.5)
+        for i in range(len(A)):
+            A[i][np.arange(len(A[i])), np.arange(len(A[i]))] = 0
+        gen = [nx.from_numpy_array(g) for g in gen_graphs]
+        ref = [nx.from_numpy_array(a) for a in A]
+        print("== Degree")
+        stats["degree"] = degree_stats(ref, gen)
+        print(stats["degree"])
+        print("== Cluster")
+        stats["cluster"] = cluster_stats(ref, gen)
+        print(stats["cluster"])
+        print("== Orbit")
+        stats["orbit"] = orbit_stats(ref, gen)
+        print(stats["orbit"])
 
-    with open(f"{ckpts_dir}/stats_{args.split}.json", "w") as statsfile:
-        statsfile.write(json.dumps(stats))
+       # == calculate log-likelihood statistics
+        bpds = compute_test_bpd(model, dataloader, args.n_monte_carlo)
+        print("== Embeddings BPD [bits]")
+        print(f"{np.mean(bpds)} \pm {np.std(bpds) / len(bpds) ** 0.5}")
+        stats["bpd_mean"] = float(np.mean(bpds))
+        stats["bpd_stderr"] = float(np.std(bpds) / len(bpds) ** 0.5)
 
-    # == create the figures using entire dataset
+        with open(f"{ckpts_dir}/stats_{args.split}.json", "w") as statsfile:
+            statsfile.write(json.dumps(stats))
+
+   # == create the figures using entire dataset
     plot_prior_histograms(model, dataloader)
     plt.savefig(f"{ckpts_dir}/prior_{args.split}.png")
 
@@ -260,7 +263,8 @@ if __name__ == "__main__":
     plt.savefig(f"{ckpts_dir}/embeddings.png")
 
     # == create the figures using generated data
-    plot_generations(n_batch = 8, n_nodes = int(np.round(np.mean(V))))
+    #plot_generations(n_batch = 8, n_nodes = int(np.median(V)))
+    plot_generations(n_batch = 8, n_nodes = 100)
     plt.savefig(f"{ckpts_dir}/generations.png")
 
     # == create the figures using subsamples of same length

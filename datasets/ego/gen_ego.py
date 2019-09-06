@@ -6,11 +6,11 @@ import itertools
 import pickle as pkl
 from argparse import ArgumentParser
 from tqdm import tqdm
-from gf.utils import *
+from src.embeddings import compute_unnormalized_laplacian_eigenmaps
 
 
 def gen_graphs(V_min = 50, V_max = 400):
-    G = pkl.load(open(f"datasets/ego/ind.citeseer.graph", "rb"), 
+    G = pkl.load(open(f"datasets/ego/ind.citeseer.graph", "rb"),
                       encoding="latin1")
     G = nx.from_dict_of_lists(G)
     G = max(nx.connected_component_subgraphs(G), key=len)
@@ -26,7 +26,7 @@ def gen_graphs(V_min = 50, V_max = 400):
 
 
 if __name__ == "__main__":
-    
+
     argparser = ArgumentParser()
     argparser.add_argument("--train-N", default=600, type=int)
     argparser.add_argument("--seed", default=123, type=int)
@@ -35,7 +35,7 @@ if __name__ == "__main__":
     np.random.seed(args.seed)
 
     V, A = gen_graphs()
-    E = np.array([compute_fgsd_embeddings(a) for a in A])
+    E = np.array([compute_unnormalized_laplacian_eigenmaps(a) for a in A])
 
     K = min([e.shape[1] for e in E])
     E = np.array([e[:, :K] for e in E])

@@ -2,7 +2,7 @@ import numpy as np
 import networkx as nx
 import itertools
 from argparse import ArgumentParser
-from gf.utils import *
+from src.embeddings import compute_unnormalized_laplacian_eigenmaps
 from tqdm import tqdm
 
 
@@ -21,7 +21,7 @@ def gen_graphs(sizes):
 
 
 if __name__ == "__main__":
-    
+
     argparser = ArgumentParser()
     argparser.add_argument("--train-N", default=2500, type=int)
     argparser.add_argument("--test-N", default=1000, type=int)
@@ -33,7 +33,7 @@ if __name__ == "__main__":
     V = np.random.choice(np.arange(12, 20), size = args.train_N + args.test_N)
     A = gen_graphs(V)
     V = np.array([len(a) for a in A])
-    E = np.array([compute_fgsd_embeddings(a) for a in A])
+    E = np.array([compute_unnormalized_laplacian_eigenmaps(a) for a in A])
 
     K = min([e.shape[1] for e in E])
     E = np.array([e[:, :K] for e in E])

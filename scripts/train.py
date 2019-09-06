@@ -11,8 +11,8 @@ from collections import defaultdict
 from torch.utils.data.dataloader import DataLoader
 from torch.optim import Adam
 from torch.optim.lr_scheduler import CosineAnnealingLR
-from gf.models.gf import GF
-from gf.datasets import *
+from src.models.gevae import GEVAE
+from src.datasets import *
 from tqdm import tqdm
 from pathlib import Path
 
@@ -29,13 +29,14 @@ if __name__ == "__main__":
     argparser.add_argument("--batch-size", default=256, type=int)
     argparser.add_argument("--print-every", default=1, type=str)
     argparser.add_argument("--load", action="store_true")
-    argparser.add_argument("--noise-lvl", default = 0.025, type = float)
+    argparser.add_argument("--noise-lvl", default = 0.01, type = float)
+    argparser.add_argument("--n-knots", default = 128, type = float)
     args = argparser.parse_args()
 
     logging.basicConfig(level = logging.DEBUG)
     logger = logging.getLogger(__name__)
 
-    ckpts_dir = f"./ckpts/{args.dataset}/gf/"
+    ckpts_dir = f"./ckpts/{args.dataset}"
     Path(ckpts_dir).mkdir(parents = True, exist_ok = True)
 
     E = np.load(f"datasets/{args.dataset}/train_E.npy", allow_pickle = True)
@@ -48,7 +49,8 @@ if __name__ == "__main__":
                             shuffle = True, collate_fn = custom_collate_fn)
     iterator = iter(dataloader)
 
-    model = GF(args.K, args.n_flows, args.noise_lvl, args.device)
+    model = GEVAE(args.K, args.n_flows, args.noise_lvl,
+                  args.n_knots, args.device)
     if args.load:
         model.load_state_dict(torch.load(f"{ckpts_dir}/weights.torch"))
 
@@ -79,10 +81,10 @@ if __name__ == "__main__":
 
         if i % args.print_every == 0:
             logger.info(f"Iter: {i}\t"
-                        f"Dataset: {args.dataset}\t" +
-                        f"Node LP: {node_lp.mean().data:.2f}\t" +
-                        f"Edge LP: {edge_lp.mean().data:.2f}\t" +
-                        f"Epoch: {epoch_no}\t" +
+                        f"Dataset: {args.dataset}\t"
+                        f"Node LP: {node_lp.mean().data:.2f}\t"
+                        f"Edge LP: {edge_lp.mean().data:.2f}\t"
+                        f"Epoch: {epoch_no}\t"
                         f"Batch size: {len(V_batch)}\t"
                         f"Max nodes: {len(A_batch[0])}")
 
